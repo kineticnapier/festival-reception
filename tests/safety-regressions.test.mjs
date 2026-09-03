@@ -1,0 +1,84 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import test, { after } from "node:test";
+import { fileURLToPath } from "node:url";
+import { createServer } from "vite";
+
+const root = fileURLToPath(new URL("..", import.meta.url));
+const vite = await createServer({
+  appType: "custom",
+  configFile: false,
+  root,
+  resolve: { alias: { "@": root } },
+  server: { middlewareMode: true, hmr: false },
+});
+
+const {
+  AUTH_BLOCK_MS,
+  AUTH_FAILURE_LIMIT,
+  AUTH_WINDOW_MS,
+  nextAuthFailureState,
+  normalizeRequestId,
+  retryAfterSeconds,
+} = await vite.ssrLoadModule("/lib/safety.ts");
+
+after(async () => {
+  await vite.close();
+});
+
+test("requestIdは空文字・長すぎる値を受け付けない", () => {
+  assert.equal(normalizeRequestId("  abc-123  "), "abc-123");
+  assert.equal(normalizeRequestId("   "), null);
+  assert.equal(normalizeRequestId("x".repeat(101)), null);
+  assert.equal(normalizeRequestId(undefined), null);
+});
+
+test("PIN失敗は5回で一時ロックになる", () => {
+  const now = 1_000_000;
+  let state = null;
+  for (let i = 1; i <= AUTH_FAILURE_LIMIT; i += 1) {
+    state = nextAuthFailureState(state, now + i);
+    assert.equal(state.failureCount, i);
+  }
+  assert.ok(state.blockedUntil >= now + AUTH_BLOCK_MS);
+  assert.ok(retryAfterSeconds(state.blockedUntil, now) > 0);
+});
+
+test("PIN失敗の集計窓を過ぎると1回目から数え直す", () => {
+  const now = 1_000_000;
+  const previous = { failureCount: 4, windowStartedAt: now, blockedUntil: 0 };
+  const next = nextAuthFailureState(previous, now + AUTH_WINDOW_MS + 1);
+  assert.equal(next.failureCount, 1);
+  assert.equal(next.blockedUntil, 0);
+});
+
+test("公開整理券取得はスタッフ認証分岐より先に処理する", async () => {
+  const source = await readFile(new URL("../app/api/status/route.ts", import.meta.url), "utf8");
+  const ticketBranch = source.indexOf("if (ticketText != null)");
+  const staffCheck = source.indexOf("verifyStaffSession(request)");
+  assert.ok(ticketBranch >= 0);
+  assert.ok(staffCheck >= 0);
+  assert.ok(ticketBranch < staffCheck);
+});
+
+test("受付と管理の更新は同じD1 mutation guardを通る", async () => {
+  const receptionRoute = await readFile(new URL("../app/api/actions/route.ts", import.meta.url), "utf8");
+  const adminRoute = await readFile(new URL("../app/api/admin/route.ts", import.meta.url), "utf8");
+  const guard = await readFile(new URL("../lib/server/operation-guard.ts", import.meta.url), "utf8");
+  assert.match(receptionRoute, /runIdempotentMutation/);
+  assert.match(adminRoute, /runIdempotentMutation/);
+  assert.match(guard, /mutation_locks/);
+  assert.match(guard, /operation_requests/);
+  assert.match(guard, /response_json/);
+});
+
+test("CIはmigrationを検証し、本番migration後にdeployする", async () => {
+  const workflow = await readFile(new URL("../.github/workflows/ci.yml", import.meta.url), "utf8");
+  const localMigration = workflow.indexOf("migrations apply DB --local");
+  const remoteMigration = workflow.indexOf("migrations apply DB --remote");
+  const deploy = workflow.indexOf("npx wrangler deploy");
+  assert.ok(localMigration >= 0);
+  assert.ok(remoteMigration >= 0);
+  assert.ok(deploy >= 0);
+  assert.ok(remoteMigration < deploy);
+});
