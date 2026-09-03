@@ -1,113 +1,113 @@
-# vinext-starter
+# 文化祭 受付・整理券システム
 
-A clean full-stack starter running on
-[vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and
-Drizzle support.
+文化祭展示の受付、紙整理券、呼出、入退場、統計を管理する Cloudflare Workers + D1 アプリです。
 
-## Prerequisites
+## 構成
 
-- Node.js `>=22.13.0`
-- Linux with `flock`, `curl`, and GNU `timeout`
+- Next.js / React UI
+- Vinext + Vite
+- Cloudflare Workers
+- Cloudflare D1
+- Drizzle schema / migrations
+- GitHub Actions による build / test / migration / deploy
 
-## Sites Lifecycle
+## ローカル開発
 
-The Sites lifecycle CLI runs the locked dependency install before returning this checkout. Edit the source under `app/`, then checkpoint when a coherent milestone is ready to inspect or share. The remote Sites builder runs `npm run build` against the pushed commit. Do not repeat install or build as a normal pre-checkpoint step.
+必要環境: Node.js 22.13 以上。
 
-This starter does not use `wrangler.jsonc`.
-
-`install:ci` is intentionally a single, non-retrying `npm ci`. It refuses a concurrent install for the same project, consumes a matching image-seeded npm cache with `--prefer-offline` while retaining registry fallback for a missing cache object, otherwise downloads and verifies the complete vinext tarball recorded in `package-lock.json`, limits npm to one socket, and terminates a stalled install. `build` applies a short timeout. These helpers target Linux and use GNU `timeout`; they are not native macOS scripts.
-
-Scripts that need writable project-scoped home, npm, XDG, and temporary paths use `scripts/sites-env.sh`. The `dev` and `start` scripts honor the caller's runtime environment and keep Wrangler logs inside the checkout. The generated `.sites-runtime/` directory is disposable and ignored by Git.
-
-## Included Shape
-
-- edit site code under `app/`
-- `app/chatgpt-auth.ts` provides optional dispatch-owned ChatGPT sign-in helpers
-- `.openai/hosting.json` declares optional Sites D1 and R2 bindings
-- `vite.config.ts` simulates declared bindings for local development
-- `db/index.ts` reads the D1 binding from the Cloudflare Worker environment
-- `db/schema.ts` starts intentionally empty
-- `examples/d1/` contains an optional D1 example surface
-- `drizzle.config.ts` supports local migration generation when needed
-
-## Workspace Auth Headers
-
-OpenAI workspace sites can read the current user's email from
-`oai-authenticated-user-email`.
-
-SIWC-authenticated workspace sites may also receive
-`oai-authenticated-user-full-name` when the user's SIWC profile has a non-empty
-`name` claim. The full-name value is percent-encoded UTF-8 and is accompanied by
-`oai-authenticated-user-full-name-encoding: percent-encoded-utf-8`.
-
-Treat the full name as optional and fall back to email when it is absent:
-
-```tsx
-import { headers } from "next/headers";
-
-export default async function Home() {
-  const requestHeaders = await headers();
-  const email = requestHeaders.get("oai-authenticated-user-email");
-  const encodedFullName = requestHeaders.get("oai-authenticated-user-full-name");
-  const fullName =
-    encodedFullName &&
-    requestHeaders.get("oai-authenticated-user-full-name-encoding") ===
-      "percent-encoded-utf-8"
-      ? decodeURIComponent(encodedFullName)
-      : null;
-
-  const displayName = fullName ?? email;
-  // ...
-}
+```bash
+npm ci
+npx wrangler d1 migrations apply DB --local
+npm run dev
 ```
 
-## Optional Dispatch-Owned ChatGPT Sign-In
+ビルドとテスト:
 
-Import the ready-to-use helpers from `app/chatgpt-auth.ts` when the site needs
-optional or required ChatGPT sign-in:
+```bash
+npm run build
+npm test
+```
 
-- Use `getChatGPTUser()` for optional signed-in UI.
-- Use `requireChatGPTUser(returnTo)` for server-rendered pages that should send
-  anonymous visitors through Sign in with ChatGPT.
-- In a Server Component, start sign-in with
-  `<a href={chatGPTSignInPath(returnTo)} target="_top">`. The auth helper
-  module is server-only; do not import it into a Client Component.
-- Do not use `fetch`, XHR, a client-side router, or a framework link that can
-  prefetch the sign-in route. SIWC must start as a top-level navigation.
-- Never request the AuthAPI authorization endpoint directly. The dispatch-owned
-  `/signin-with-chatgpt` route must start the SIWC flow.
-- Use `chatGPTSignOutPath(returnTo)` for browser sign-out links or actions.
-- Pass a same-origin relative `returnTo` path for the destination after sign-in
-  or sign-out. The helper validates and safely encodes it.
-- Mark protected pages with `export const dynamic = "force-dynamic"` because
-  they depend on per-request identity headers.
+## Cloudflare設定
 
-Dispatch owns `/signin-with-chatgpt`, `/signout-with-chatgpt`, `/callback`, the
-OAuth cookies, and identity header injection. Do not implement app routes for
-those reserved paths. Routes that do not import and call the helper remain
-anonymous-compatible.
+`wrangler.jsonc` の D1 binding は `DB` です。
 
-SIWC establishes identity only; it does not prove workspace membership. Use the
-Sites hosting platform's access policy controls for workspace-wide restrictions,
-or enforce explicit server-side membership or allowlist checks.
+Worker secrets として次を設定します。
 
-Use SIWC for account pages, user-specific dashboards, saved records, and write
-actions tied to the current ChatGPT user. Leave public content anonymous.
+```text
+STAFF_PIN
+ADMIN_PIN
+STAFF_SESSION_SECRET
+```
 
-## Diagnostic Commands
+値はリポジトリへコミットしないでください。
 
-- `npm run install:ci`: perform the one bounded lockfile install
-- `npm run dev`: start the Vite/Vinext development server
-- `npm run build`: build the deployable Sites artifact
-- `npm run start`: start the built Vinext application
-- `npm test`: build and verify the rendered development-preview metadata
-- `npm run db:generate`: generate Drizzle migrations after schema changes
+## デプロイ
 
-Use build commands for targeted diagnosis after a remote failure, not as part of the normal checkpoint path.
+手動の場合:
 
-The timeout defaults can be overridden for a controlled canary with `SITES_INSTALL_TIMEOUT`, `SITES_INSTALL_KILL_AFTER`, `SITES_BUILD_TIMEOUT`, and `SITES_BUILD_KILL_AFTER`. A timeout fails the command; the helpers never retry an unchanged install or build.
+```bash
+npx wrangler d1 migrations apply DB --remote
+npm run build
+npx wrangler deploy
+```
 
-## Learn More
+GitHub Actions では `main` への push 時に以下を順に実行します。
 
-- [vinext Documentation](https://github.com/cloudflare/vinext)
-- [Drizzle D1 Guide](https://orm.drizzle.team/docs/get-started/d1-new)
+1. `npm ci`
+2. D1 migrations をローカルDBで検証
+3. build
+4. test
+5. production D1 migrations
+6. Cloudflare Workers deploy
+
+自動デプロイには GitHub Actions の repository secrets が必要です。
+
+```text
+CLOUDFLARE_API_TOKEN
+CLOUDFLARE_ACCOUNT_ID
+```
+
+Pull Request では本番D1・本番Workerには触れず、ローカルmigration / build / test のみ実行します。
+
+## 安全性
+
+受付・管理の更新操作は同じ日単位のD1 mutation lockを通します。これにより複数端末からの同時更新を直列化し、定員判定と更新の競合を防ぎます。
+
+受付APIの `requestId` は `operation_requests` に保存されます。同じ `requestId` が再送された場合、完了済みなら保存済みレスポンスを返し、同じ操作を二重実行しません。
+
+スタッフ / 管理者PINはIP相当のハッシュ単位で失敗回数を記録し、短時間に5回失敗すると一時的に認証を制限します。セッションCookieは `HttpOnly; Secure; SameSite=Strict` です。
+
+## 整理券フロー
+
+```text
+整理券を準備
+  ↓
+紙を実際に渡す
+  ↓
+「紙を渡した」
+  ↓
+待機
+  ↓
+呼出
+  ↓
+入場確認
+  ↓
+入場中
+  ↓
+退場
+```
+
+紙の受け渡しが未確認の間は、次の整理券番号を進める操作を止めます。
+
+## テスト
+
+`tests/queue-guidance.test.mjs` は案内優先度・空き確保・待ち時間予測を検証します。
+
+`tests/safety-regressions.test.mjs` は以下の安全性を回帰確認します。
+
+- requestIdの正規化
+- PIN連続失敗時の一時ロック
+- 公開整理券取得がスタッフ認証分岐より優先されること
+- 受付・管理更新が同じmutation guardを通ること
+- production migration が deploy より先に実行されること
