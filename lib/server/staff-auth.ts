@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
+import { AUTH_BLOCK_MS, AUTH_FAILURE_LIMIT, AUTH_WINDOW_MS, retryAfterSeconds } from "@/lib/safety";
 
-type Role = "staff" | "admin";
+export type Role = "staff" | "admin";
 const COOKIE_NAMES: Record<Role, string> = { staff: "festival_staff_session", admin: "festival_admin_session" };
 const SESSION_SECONDS = 12 * 60 * 60;
 const encoder = new TextEncoder();
@@ -73,6 +74,51 @@ async function readSession(request: Request, role: Role) {
   } catch {
     return null;
   }
+}
+
+async function authScopeKey(request: Request, role: Role) {
+  const forwarded = request.headers.get("cf-connecting-ip")
+    ?? request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+    ?? `ua:${request.headers.get("user-agent") ?? "unknown"}`;
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", encoder.encode(forwarded)));
+  const hash = Array.from(digest, (byte) => byte.toString(16).padStart(2, "0")).join("").slice(0, 32);
+  return `${role}:${hash}`;
+}
+
+export async function checkAuthRateLimit(request: Request, role: Role) {
+  const now = Date.now();
+  const scopeKey = await authScopeKey(request, role);
+  const row = await database().prepare("SELECT blocked_until FROM auth_rate_limits WHERE scope_key = ?").bind(scopeKey).first<{ blocked_until: number }>();
+  const retryAfter = retryAfterSeconds(row?.blocked_until ?? 0, now);
+  return { allowed: retryAfter === 0, retryAfterSeconds: retryAfter };
+}
+
+export async function recordAuthFailure(request: Request, role: Role) {
+  const now = Date.now();
+  const scopeKey = await authScopeKey(request, role);
+  const windowCutoff = now - AUTH_WINDOW_MS;
+  const row = await database().prepare(`
+    INSERT INTO auth_rate_limits (scope_key, failure_count, window_started_at, blocked_until, updated_at)
+    VALUES (?, 1, ?, 0, ?)
+    ON CONFLICT(scope_key) DO UPDATE SET
+      failure_count = CASE WHEN auth_rate_limits.window_started_at <= ? THEN 1 ELSE auth_rate_limits.failure_count + 1 END,
+      window_started_at = CASE WHEN auth_rate_limits.window_started_at <= ? THEN excluded.window_started_at ELSE auth_rate_limits.window_started_at END,
+      blocked_until = CASE
+        WHEN (CASE WHEN auth_rate_limits.window_started_at <= ? THEN 1 ELSE auth_rate_limits.failure_count + 1 END) >= ? THEN ?
+        ELSE 0
+      END,
+      updated_at = excluded.updated_at
+    RETURNING failure_count, blocked_until
+  `).bind(scopeKey, now, now, windowCutoff, windowCutoff, windowCutoff, AUTH_FAILURE_LIMIT, now + AUTH_BLOCK_MS).first<{ failure_count: number; blocked_until: number }>();
+  return {
+    failureCount: row?.failure_count ?? 1,
+    retryAfterSeconds: retryAfterSeconds(row?.blocked_until ?? 0, now),
+  };
+}
+
+export async function clearAuthFailures(request: Request, role: Role) {
+  const scopeKey = await authScopeKey(request, role);
+  await database().prepare("DELETE FROM auth_rate_limits WHERE scope_key = ?").bind(scopeKey).run();
 }
 
 export async function verifyStaffSession(request: Request) { return (await readSession(request, "staff")) != null; }
