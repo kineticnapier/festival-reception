@@ -2,6 +2,7 @@ import { env } from "cloudflare:workers";
 import { normalizeRequestId } from "@/lib/safety";
 
 const LOCK_MS = 30_000;
+const LOCK_RETRY_DELAYS_MS = [0, 40, 80, 120];
 
 type OperationRow = {
   request_id: string;
@@ -18,6 +19,10 @@ function db() {
   return env.DB;
 }
 
+function sleep(milliseconds: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
+}
+
 export class MutationBusyError extends Error {
   constructor(message = "別の操作を処理中です。少し待ってもう一度お試しください") {
     super(message);
@@ -25,7 +30,7 @@ export class MutationBusyError extends Error {
   }
 }
 
-async function acquireLock(dayKey: string, requestId: string, now: number) {
+async function tryAcquireLock(dayKey: string, requestId: string, now: number) {
   return db().prepare(`
     INSERT INTO mutation_locks (day_key, owner_request_id, acquired_at, expires_at)
     VALUES (?, ?, ?, ?)
@@ -36,6 +41,16 @@ async function acquireLock(dayKey: string, requestId: string, now: number) {
     WHERE mutation_locks.expires_at <= ? OR mutation_locks.owner_request_id = excluded.owner_request_id
     RETURNING owner_request_id
   `).bind(dayKey, requestId, now, now + LOCK_MS, now).first<{ owner_request_id: string }>();
+}
+
+async function acquireLock(dayKey: string, requestId: string) {
+  for (const delay of LOCK_RETRY_DELAYS_MS) {
+    if (delay > 0) await sleep(delay);
+    const now = Date.now();
+    const lock = await tryAcquireLock(dayKey, requestId, now);
+    if (lock?.owner_request_id === requestId) return lock;
+  }
+  return null;
 }
 
 async function releaseLock(dayKey: string, requestId: string) {
@@ -75,7 +90,7 @@ export async function runIdempotentMutation<T>(options: {
     throw new MutationBusyError("同じ操作がまだ処理中です。画面を更新して結果を確認してください");
   }
 
-  const lock = await acquireLock(options.dayKey, requestId, now);
+  const lock = await acquireLock(options.dayKey, requestId);
   if (!lock) {
     await database.prepare("DELETE FROM operation_requests WHERE request_id = ? AND state = 'started'").bind(requestId).run();
     throw new MutationBusyError();
