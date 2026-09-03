@@ -9,7 +9,7 @@ const vite = await createServer({
   configFile: false,
   root,
   resolve: { alias: { "@": root } },
-  server: { middlewareMode: true },
+  server: { middlewareMode: true, hmr: false },
 });
 const { calculateQueueGuidance } = await vite.ssrLoadModule("/lib/queue-guidance.ts");
 
