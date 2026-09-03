@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import { normalizeRequestId } from "@/lib/safety";
+import { ensureHardeningSchema } from "@/lib/server/hardening-schema";
 
 const LOCK_MS = 30_000;
 const LOCK_RETRY_DELAYS_MS = [0, 40, 80, 120];
@@ -63,6 +64,7 @@ export async function runIdempotentMutation<T>(options: {
   action: string;
   execute: (requestId: string) => Promise<T>;
 }) {
+  await ensureHardeningSchema();
   const database = db();
   const now = Date.now();
   const requestId = normalizeRequestId(options.requestId) ?? crypto.randomUUID();
