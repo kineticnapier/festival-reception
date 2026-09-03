@@ -1,0 +1,80 @@
+/* Dense operator UI for tablets/desktops. Keep mobile layout unchanged. */
+@media (min-width: 721px) {
+  .app-shell { width: min(1060px, 100%); padding: 12px clamp(14px, 2vw, 28px) 24px; }
+  .topbar { gap: 12px; margin-bottom: 9px; }
+  .reception-topbar .eyebrow { display: none; }
+  .reception-topbar h1 { font-size: 27px; }
+  .sync-badge { padding: 7px 10px; font-size: 11px; }
+
+  .reception-metrics { border-radius: 15px; }
+  .reception-metrics .metric { min-height: 76px; padding: 10px 15px; }
+  .reception-metrics .metric > span { font-size: 12px; }
+  .reception-metrics .metric strong { font-size: 36px; }
+
+  .workspace { margin-top: 9px; }
+  .mode-tabs { height: 46px !important; padding: 4px !important; }
+  .mode-tabs button { min-height: 36px; font-size: 14px; }
+  .panel-grid { gap: 10px; margin-top: 9px; }
+  .control-card, .formula-card { padding: 15px; border-radius: 16px; }
+  .card-heading { margin-bottom: 12px; }
+  .card-heading h2, .settings-card h2, .formula-card h2 { font-size: 20px; }
+
+  .reception-panel .fast-entry-card { padding: 13px 15px; }
+  .party-size-row { gap: 7px; }
+  .party-size-row > button:not(.step-button) { min-height: 58px; border-radius: 12px; }
+  .party-size-row > button:not(.step-button) strong { font-size: 29px; }
+  .party-adjust { grid-template-columns: 1fr 50px 78px 50px; gap: 7px; margin-top: 7px; padding: 7px; }
+  .step-button { min-height: 50px; }
+  .party-readout strong { font-size: 29px; }
+
+  .quick-source { margin-top: 9px; padding-top: 8px; }
+  .quick-source > p { margin-bottom: 7px; }
+  .quick-source > p strong { font-size: 18px; }
+  .quick-source button { min-height: 44px; padding: 5px; }
+  .demographic-details { margin-top: 8px; padding: 9px; }
+  .detail-grid { gap: 8px; }
+  .detail-grid > section { padding: 10px; }
+  .split-slider { min-height: 42px; padding: 11px 4px; }
+  .split-slider [data-slot="slider-thumb"] { width: 26px; height: 26px; }
+
+  .register-actions { gap: 14px; margin-top: 9px; }
+  .action-button, .register-actions .action-button { min-height: 66px; font-size: 19px; }
+  .action-button svg { width: 23px !important; height: 23px !important; }
+  .queue-empty-bar { min-height: 48px; padding: 8px 13px; }
+
+  .paper-ticket-alert { gap: 16px; margin-top: 9px; padding: 11px 14px; }
+  .paper-ticket-alert p { font-size: 16px; }
+  .paper-ticket-alert strong { font-size: 54px; }
+  .paper-ticket-actions { min-width: 360px; gap: 6px; }
+  .paper-ticket-actions button, .paper-ticket-actions a { min-height: 44px; }
+  .handoff-confirm-button { min-height: 58px !important; font-size: 19px; }
+
+  .reception-panel .call-card { gap: 12px; padding: 13px 15px; }
+  .queue-guidance { gap: 8px; }
+  .guidance-capacity, .guidance-result { padding: 10px 12px; }
+  .guidance-capacity > strong { font-size: 35px; }
+  .guidance-result > strong { font-size: 43px; }
+  .reception-panel .call-control { gap: 7px; }
+  .reception-panel .call-actions { gap: 7px; }
+  .reception-panel .call-card .action-button { min-height: 54px; font-size: 17px; }
+  .exception-call-button { min-height: 40px; }
+
+  .ticket-row { min-height: 46px; }
+  .inside-group { padding: 8px; }
+
+  .admin-shell { width: min(1120px, 100%); }
+  .admin-shell .topbar h1 { font-size: 27px; }
+  .admin-metrics .metric { min-height: 78px; padding: 10px 14px; }
+  .admin-metrics .metric strong { font-size: 34px; }
+  .admin-grid { gap: 10px; margin-top: 10px; }
+  .admin-tabs { height: 46px !important; }
+  .admin-tabs button { min-width: 112px; min-height: 36px; font-size: 13px; }
+  .hour-chart { min-height: 135px; gap: 6px; padding-top: 8px; }
+  .hour-chart > div { min-width: 46px; }
+  .hour-chart i { width: 28px; }
+  .stats-card h2 { margin-bottom: 9px; }
+  .stats-card p:not(.kicker) { padding: 9px; }
+  .stats-card p strong { font-size: 19px; }
+  .admin-form-grid { gap: 9px; margin: 12px 0; }
+  .admin-form-grid input { height: 46px; font-size: 18px; }
+}
