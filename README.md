@@ -9,7 +9,7 @@
 - Cloudflare Workers
 - Cloudflare D1
 - Drizzle schema / migrations
-- GitHub Actions による build / test / migration / deploy
+- GitHub Actions による build / test / deploy
 
 ## ローカル開発
 
@@ -47,10 +47,13 @@ STAFF_SESSION_SECRET
 手動の場合:
 
 ```bash
-npx wrangler d1 migrations apply DB --remote
 npm run build
 npx wrangler deploy
 ```
+
+安全機能用の `operation_requests` / `mutation_locks` / `auth_rate_limits` は、Workerが最初に必要になった時に `CREATE TABLE IF NOT EXISTS` で初期化します。これにより、Workers deploy用API TokenにD1管理API権限を追加しなくても安全に導入できます。
+
+`drizzle/0005_festival_hardening.sql` も同じDDLを `IF NOT EXISTS` 付きで保持しているため、将来D1 migration権限を追加した後にremote migrationを適用して履歴へ記録しても衝突しません。
 
 GitHub Actions では `main` への push 時に以下を順に実行します。
 
@@ -58,8 +61,7 @@ GitHub Actions では `main` への push 時に以下を順に実行します。
 2. D1 migrations をローカルDBで検証
 3. build
 4. test
-5. production D1 migrations
-6. Cloudflare Workers deploy
+5. Cloudflare Workers deploy
 
 自動デプロイには GitHub Actions の repository secrets が必要です。
 
@@ -110,4 +112,5 @@ Pull Request では本番D1・本番Workerには触れず、ローカルmigratio
 - PIN連続失敗時の一時ロック
 - 公開整理券取得がスタッフ認証分岐より優先されること
 - 受付・管理更新が同じmutation guardを通ること
-- production migration が deploy より先に実行されること
+- hardeningテーブルをWorker自身が安全に初期化できること
+- local migration検証 → build → test → deploy の順序

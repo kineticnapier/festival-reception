@@ -70,15 +70,30 @@ test("受付と管理の更新は同じD1 mutation guardを通る", async () => 
   assert.match(guard, /mutation_locks/);
   assert.match(guard, /operation_requests/);
   assert.match(guard, /response_json/);
+  assert.match(guard, /ensureHardeningSchema/);
 });
 
-test("CIはmigrationを検証し、本番migration後にdeployする", async () => {
+test("hardeningテーブルはWorker自身が安全に初期化できる", async () => {
+  const schema = await readFile(new URL("../lib/server/hardening-schema.ts", import.meta.url), "utf8");
+  const migration = await readFile(new URL("../drizzle/0005_festival_hardening.sql", import.meta.url), "utf8");
+  assert.match(schema, /CREATE TABLE IF NOT EXISTS operation_requests/);
+  assert.match(schema, /CREATE TABLE IF NOT EXISTS mutation_locks/);
+  assert.match(schema, /CREATE TABLE IF NOT EXISTS auth_rate_limits/);
+  assert.match(migration, /CREATE TABLE IF NOT EXISTS/);
+});
+
+test("CIはmigrationをローカル検証してからbuild・test・deployする", async () => {
   const workflow = await readFile(new URL("../.github/workflows/ci.yml", import.meta.url), "utf8");
   const localMigration = workflow.indexOf("migrations apply DB --local");
-  const remoteMigration = workflow.indexOf("migrations apply DB --remote");
+  const build = workflow.indexOf("npm run build");
+  const tests = workflow.indexOf("npm test");
   const deploy = workflow.indexOf("npx wrangler deploy");
   assert.ok(localMigration >= 0);
-  assert.ok(remoteMigration >= 0);
+  assert.ok(build >= 0);
+  assert.ok(tests >= 0);
   assert.ok(deploy >= 0);
-  assert.ok(remoteMigration < deploy);
+  assert.ok(localMigration < build);
+  assert.ok(build < tests);
+  assert.ok(tests < deploy);
+  assert.doesNotMatch(workflow, /migrations apply DB --remote/);
 });

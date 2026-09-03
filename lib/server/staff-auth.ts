@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import { AUTH_BLOCK_MS, AUTH_FAILURE_LIMIT, AUTH_WINDOW_MS, retryAfterSeconds } from "@/lib/safety";
+import { ensureHardeningSchema } from "@/lib/server/hardening-schema";
 
 export type Role = "staff" | "admin";
 const COOKIE_NAMES: Record<Role, string> = { staff: "festival_staff_session", admin: "festival_admin_session" };
@@ -86,6 +87,7 @@ async function authScopeKey(request: Request, role: Role) {
 }
 
 export async function checkAuthRateLimit(request: Request, role: Role) {
+  await ensureHardeningSchema();
   const now = Date.now();
   const scopeKey = await authScopeKey(request, role);
   const row = await database().prepare("SELECT blocked_until FROM auth_rate_limits WHERE scope_key = ?").bind(scopeKey).first<{ blocked_until: number }>();
@@ -94,6 +96,7 @@ export async function checkAuthRateLimit(request: Request, role: Role) {
 }
 
 export async function recordAuthFailure(request: Request, role: Role) {
+  await ensureHardeningSchema();
   const now = Date.now();
   const scopeKey = await authScopeKey(request, role);
   const windowCutoff = now - AUTH_WINDOW_MS;
@@ -117,6 +120,7 @@ export async function recordAuthFailure(request: Request, role: Role) {
 }
 
 export async function clearAuthFailures(request: Request, role: Role) {
+  await ensureHardeningSchema();
   const scopeKey = await authScopeKey(request, role);
   await database().prepare("DELETE FROM auth_rate_limits WHERE scope_key = ?").bind(scopeKey).run();
 }
