@@ -1,0 +1,1 @@
+ALTER TABLE `day_state` ADD `reserve_wait_seconds` integer DEFAULT 300 NOT NULL;

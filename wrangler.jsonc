@@ -1,0 +1,21 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "festival-reception",
+  "compatibility_date": "2026-09-03",
+  "compatibility_flags": ["nodejs_compat"],
+
+  "main": "vinext/server/app-router-entry",
+
+  "assets": {
+    "not_found_handling": "none"
+  },
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "festival-reception-db",
+      "database_id": "bd0b17e3-8621-4e06-84f0-837b0935b75e",
+      "migrations_dir": "drizzle"
+    }
+  ]
+}
