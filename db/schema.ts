@@ -107,3 +107,35 @@ export const socialLinks = sqliteTable("social_links", {
 }, (table) => [
   index("social_links_enabled_sort_idx").on(table.enabled, table.sortOrder),
 ]);
+
+export const operationRequests = sqliteTable("operation_requests", {
+  requestId: text("request_id").primaryKey(),
+  dayKey: text("day_key").notNull(),
+  action: text("action").notNull(),
+  state: text("state").notNull().default("started"),
+  responseJson: text("response_json"),
+  errorMessage: text("error_message"),
+  createdAt: integer("created_at").notNull(),
+  completedAt: integer("completed_at"),
+}, (table) => [
+  index("operation_requests_day_created_idx").on(table.dayKey, table.createdAt),
+]);
+
+export const mutationLocks = sqliteTable("mutation_locks", {
+  dayKey: text("day_key").primaryKey(),
+  ownerRequestId: text("owner_request_id").notNull(),
+  acquiredAt: integer("acquired_at").notNull(),
+  expiresAt: integer("expires_at").notNull(),
+}, (table) => [
+  index("mutation_locks_expires_idx").on(table.expiresAt),
+]);
+
+export const authRateLimits = sqliteTable("auth_rate_limits", {
+  scopeKey: text("scope_key").primaryKey(),
+  failureCount: integer("failure_count").notNull().default(0),
+  windowStartedAt: integer("window_started_at").notNull(),
+  blockedUntil: integer("blocked_until").notNull().default(0),
+  updatedAt: integer("updated_at").notNull(),
+}, (table) => [
+  index("auth_rate_limits_updated_idx").on(table.updatedAt),
+]);
