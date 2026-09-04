@@ -7,6 +7,7 @@ import "./age-groups.css";
 import "./qr-dialog-link.css";
 import "./wait-public.css";
 import "./motion.css";
+import "./reception-traps.css";
 
 export const metadata: Metadata = {
   title: "文化祭 受付・整理券システム",
