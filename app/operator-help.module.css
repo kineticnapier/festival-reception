@@ -1,0 +1,77 @@
+.launcher {
+  position: fixed;
+  top: 76px;
+  right: 14px;
+  z-index: 45;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid rgba(15, 23, 42, 0.16);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.1);
+  font-weight: 700;
+  font-size: 14px;
+  color: #0f172a;
+  backdrop-filter: blur(8px);
+}
+
+.launcher svg {
+  width: 18px;
+  height: 18px;
+}
+
+.dialog {
+  width: min(92vw, 620px);
+  max-height: 84vh;
+  overflow-y: auto;
+}
+
+.body {
+  display: grid;
+  gap: 14px;
+  margin-top: 4px;
+}
+
+.quickRule {
+  padding: 12px 14px;
+  border: 1px solid #f59e0b;
+  border-radius: 12px;
+  background: #fffbeb;
+  font-weight: 700;
+  line-height: 1.55;
+}
+
+.section {
+  padding: 12px 14px;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.section h3 {
+  margin: 0 0 6px;
+  font-size: 15px;
+}
+
+.section p {
+  margin: 0;
+  color: #475569;
+  line-height: 1.65;
+  font-size: 14px;
+}
+
+.section strong {
+  color: #0f172a;
+}
+
+@media (max-width: 720px) {
+  .launcher {
+    top: 68px;
+    right: 10px;
+    min-height: 38px;
+    padding: 0 10px;
+  }
+}
