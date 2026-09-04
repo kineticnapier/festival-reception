@@ -1,4 +1,5 @@
 import { currentDayKey, performAction } from "@/lib/server/reception";
+import { createSplitQueueIfNeeded } from "@/lib/server/split-queue";
 import { MutationBusyError, runIdempotentMutation } from "@/lib/server/operation-guard";
 import { verifyAdminSession, verifyStaffSession } from "@/lib/server/staff-auth";
 
@@ -15,7 +16,14 @@ export async function POST(request: Request) {
       requestId: body.requestId,
       dayKey: currentDayKey(),
       action: body.action,
-      execute: (requestId) => performAction(body.action!, { ...body, requestId }),
+      execute: async (requestId) => {
+        const input = { ...body, requestId };
+        if (body.action === "QUEUE_CREATE_GROUP") {
+          const split = await createSplitQueueIfNeeded(input);
+          if (split) return split;
+        }
+        return performAction(body.action!, input);
+      },
     });
 
     return Response.json(guarded.value, {
