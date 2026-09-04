@@ -14,6 +14,8 @@
   .workspace { margin-top: 9px; }
   .mode-tabs { height: 46px !important; padding: 4px !important; }
   .mode-tabs button { min-height: 36px; font-size: 14px; }
+  .operator-tabs { display: grid !important; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .operator-tabs button { min-width: 0; }
   .panel-grid { gap: 10px; margin-top: 9px; }
   .control-card, .formula-card { padding: 15px; border-radius: 16px; }
   .card-heading { margin-bottom: 12px; }
@@ -26,6 +28,35 @@
   .party-adjust { grid-template-columns: 1fr 50px 78px 50px; gap: 7px; margin-top: 7px; padding: 7px; }
   .step-button { min-height: 50px; }
   .party-readout strong { font-size: 29px; }
+
+  .party-counter {
+    display: grid;
+    grid-template-columns: 64px minmax(120px, 1fr) 64px;
+    align-items: stretch;
+    gap: 8px;
+    max-width: 520px;
+    margin: 8px auto 0;
+  }
+  .party-counter .step-button {
+    min-height: 64px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: #f0eee6;
+  }
+  .party-counter .step-button:disabled { opacity: .35; }
+  .party-counter .party-readout {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 7px;
+    min-height: 64px;
+    padding: 8px 16px;
+    border: 2px solid var(--green);
+    border-radius: 14px;
+    background: #eef8f2;
+  }
+  .party-counter .party-readout strong { font-size: 42px; line-height: 1; }
+  .party-counter .party-readout span { font-weight: 800; }
 
   .quick-source { margin-top: 9px; padding-top: 8px; }
   .quick-source > p { margin-bottom: 7px; }
@@ -42,16 +73,15 @@
   .action-button svg { width: 23px !important; height: 23px !important; }
   .queue-empty-bar { min-height: 48px; padding: 8px 13px; }
 
-  /* During paper handoff, only the ticket number and confirmation action need to
-     dominate. Secondary actions stay available without competing for attention. */
   .paper-ticket-alert {
     display: grid;
-    grid-template-columns: minmax(210px, 0.8fr) minmax(390px, 1.8fr);
+    grid-template-columns: minmax(210px, .8fr) minmax(390px, 1.8fr);
     align-items: center;
     gap: 18px;
     margin-top: 9px;
     padding: 12px 16px;
   }
+  .compact-handoff { margin-top: 0; }
   .paper-ticket-number {
     display: grid;
     grid-template-columns: auto 1fr;
@@ -66,12 +96,13 @@
     grid-area: state;
     width: max-content;
     max-width: 100%;
-    font-size: 0;
-    line-height: 1;
-  }
-  .paper-ticket-number > span::after {
-    content: "受け渡し待ち";
+    margin-bottom: 5px;
+    padding: 4px 9px;
+    border-radius: 999px;
+    background: #8f4e14;
+    color: white;
     font-size: 12px;
+    font-weight: 900;
     line-height: 1;
   }
   .paper-ticket-number > p:not(.paper-ticket-instruction) {
@@ -84,7 +115,7 @@
     grid-area: number;
     margin: 0;
     font-size: 52px;
-    line-height: 0.95;
+    line-height: .95;
   }
   .paper-ticket-number > strong small { font-size: 18px; }
   .paper-ticket-instruction { display: none; }
