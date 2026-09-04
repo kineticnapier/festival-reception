@@ -1,0 +1,34 @@
+.notice {
+  margin: 14px 0 0;
+  padding: 14px 16px;
+  border: 1px solid #e5b54a;
+  border-radius: 14px;
+  background: #fff8df;
+  color: #4d3a0b;
+}
+
+.notice strong,
+.notice span,
+.notice small {
+  display: block;
+}
+
+.notice strong {
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.notice span {
+  margin-top: 5px;
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 1.35;
+}
+
+.notice small {
+  margin-top: 6px;
+  color: #6b571e;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.55;
+}
