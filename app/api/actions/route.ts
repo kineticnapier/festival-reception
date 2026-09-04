@@ -1,4 +1,5 @@
 import { currentDayKey, performAction } from "@/lib/server/reception";
+import { chooseSplitContinuationTicket } from "@/lib/server/split-continuation";
 import { createSplitQueueIfNeeded } from "@/lib/server/split-queue";
 import { MutationBusyError, runIdempotentMutation } from "@/lib/server/operation-guard";
 import { verifyAdminSession, verifyStaffSession } from "@/lib/server/staff-auth";
@@ -21,6 +22,13 @@ export async function POST(request: Request) {
         if (body.action === "QUEUE_CREATE_GROUP") {
           const split = await createSplitQueueIfNeeded(input);
           if (split) return split;
+        }
+        if (body.action === "CALL_NEXT") {
+          const continuationTicket = await chooseSplitContinuationTicket();
+          if (continuationTicket != null) {
+            const result = await performAction("CALL_NUMBER", { ...input, ticketNumber: continuationTicket });
+            return { ...result, splitContinuation: true };
+          }
         }
         return performAction(body.action!, input);
       },
