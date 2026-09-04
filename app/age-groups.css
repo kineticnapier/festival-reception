@@ -1,5 +1,5 @@
-/* Reception statistics use a simple visitor-age split:
-   university age and above / high-school age and below. */
+/* Visitor age split used by reception statistics:
+   university students and above / high-school students and below. */
 .reception-panel .detail-grid > .split-axis:last-child > h3 {
   font-size: 0;
 }
@@ -16,6 +16,20 @@
   font-size: 0.875rem;
 }
 .reception-panel .detail-grid > .split-axis:last-child .split-labels > span:last-child::after {
+  content: "高校生以下";
+  font-size: 0.875rem;
+}
+
+/* Keep the admin summary wording consistent with the reception form. */
+.admin-grid > .stats-card:last-child > div > p:nth-child(3) > span,
+.admin-grid > .stats-card:last-child > div > p:nth-child(4) > span {
+  font-size: 0;
+}
+.admin-grid > .stats-card:last-child > div > p:nth-child(3) > span::after {
+  content: "大学生以上";
+  font-size: 0.875rem;
+}
+.admin-grid > .stats-card:last-child > div > p:nth-child(4) > span::after {
   content: "高校生以下";
   font-size: 0.875rem;
 }
