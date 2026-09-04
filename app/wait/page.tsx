@@ -57,7 +57,7 @@ export default function WaitPage() {
   return (
     <main className="wait-public-shell">
       <header className="wait-public-header">
-        <div className="wait-public-brand"><span>情報工学部</span><strong>順番待ち状況</strong></div>
+        <div className="wait-public-brand"><strong>順番待ち状況</strong></div>
         <span className="wait-live"><i />自動更新</span>
       </header>
 
