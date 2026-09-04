@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
+import MotionFeedback from "./motion-feedback";
 import QrDialogLink from "./qr-dialog-link";
 import "./globals.css";
 import "./compact.css";
 import "./age-groups.css";
 import "./qr-dialog-link.css";
 import "./wait-public.css";
+import "./motion.css";
 
 export const metadata: Metadata = {
   title: "文化祭 受付・整理券システム",
@@ -25,6 +27,7 @@ export default function RootLayout({
       <body className="antialiased">
         {children}
         <QrDialogLink />
+        <MotionFeedback />
       </body>
     </html>
   );
