@@ -1,74 +1,62 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { CircleHelp } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import styles from "./operator-help.module.css";
 
 export default function OperatorHelp() {
-  return (
+  const [target, setTarget] = useState<Element | null>(null);
+
+  useEffect(() => {
+    const findTarget = () => setTarget(document.querySelector(".reception-topbar .topbar-actions"));
+    findTarget();
+    const observer = new MutationObserver(findTarget);
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, []);
+
+  if (!target) return null;
+
+  return createPortal(
     <Dialog>
       <DialogTrigger asChild>
-        <button type="button" className={styles.launcher} aria-label="受付操作のヘルプを開く">
+        <Button type="button" variant="ghost" size="sm" aria-label="受付操作のヘルプを開く">
           <CircleHelp aria-hidden="true" />
-          <span>ヘルプ</span>
-        </button>
+          ヘルプ
+        </Button>
       </DialogTrigger>
       <DialogContent className={styles.dialog}>
         <DialogHeader>
-          <DialogTitle>受付操作ヘルプ</DialogTitle>
-          <DialogDescription>本番中に迷いやすい操作だけをまとめています。</DialogDescription>
+          <DialogTitle>使い方</DialogTitle>
+          <DialogDescription>受付で使う操作だけを簡単にまとめています。</DialogDescription>
         </DialogHeader>
 
         <div className={styles.body}>
-          <div className={styles.quickRule}>
-            定員を超えて入場させない・紙を渡す前に次へ進まない・案内は1回につき1グループ。
-          </div>
-
           <section className={styles.section}>
-            <h3>受付</h3>
-            <p>
-              人数を入力し、空きがあってそのまま入れる場合は<strong>「入場」</strong>、混雑時は<strong>「整理券を発行」</strong>を使います。
-              定員を超える大人数グループは、自動で定員以下の複数グループへなるべく均等に分割されます。
-            </p>
+            <h3>1. 受付</h3>
+            <p>人数を合わせ、すぐ入れるなら<strong>「入場」</strong>、待ってもらうなら<strong>「整理券を発行」</strong>を押します。整理券は紙を渡してから<strong>「紙を渡した」</strong>を押します。</p>
           </section>
 
           <section className={styles.section}>
-            <h3>分割されたグループ</h3>
-            <p>
-              同じ団体として内部で紐付いています。先のグループが入場中で、残りのグループが<strong>今の空き人数に収まるときだけ</strong>続けて案内を優先します。
-              入れない間は他のグループを案内するため、全員同時入場や連続入場は保証しません。
-            </p>
+            <h3>2. 案内</h3>
+            <p><strong>「次を呼ぶ」</strong>で案内する番号を呼び、来たら<strong>「入場」</strong>を押します。番号を変える必要があるときだけ<strong>「別の番号を呼ぶ」</strong>を使います。</p>
           </section>
 
           <section className={styles.section}>
-            <h3>紙整理券</h3>
-            <p>
-              画面に表示された番号の紙を実際に渡してから<strong>「紙を渡した」</strong>を押します。分割時も1枚ずつ、受け渡し確認をしてから次の番号へ進みます。
-            </p>
+            <h3>3. 退場</h3>
+            <p>出てきたグループの<strong>「退場」</strong>を押します。複数組が一緒に出たときは選択して<strong>「まとめて退場」</strong>を使います。</p>
           </section>
 
           <section className={styles.section}>
-            <h3>案内</h3>
-            <p>
-              基本は<strong>「次を呼ぶ」</strong>を使います。人数・待ち時間・空き状況を見てシステムが案内候補を決めます。特別な事情がある場合だけ番号指定を使います。
-            </p>
-          </section>
-
-          <section className={styles.section}>
-            <h3>退場</h3>
-            <p>
-              退場したグループの<strong>「退場」</strong>を押します。複数グループが同時に出た場合は選択して<strong>「まとめて退場」</strong>を使えます。
-            </p>
-          </section>
-
-          <section className={styles.section}>
-            <h3>間違えたとき</h3>
-            <p>
-              直前の操作なら<strong>「最後を取り消す」</strong>、それ以外は管理画面から修正します。通信中は同じボタンを連打せず、完了表示を待ってください。
-            </p>
+            <h3>4. 間違えたとき</h3>
+            <p>直前なら<strong>「最後を取り消す」</strong>を使います。それ以外の修正は<strong>「管理」</strong>から行います。</p>
           </section>
         </div>
       </DialogContent>
-    </Dialog>
+    </Dialog>,
+    target,
   );
 }
