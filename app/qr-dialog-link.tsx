@@ -6,10 +6,9 @@ function waitPageHref(qr: Element) {
   const dialog = qr.closest("[role='dialog']") ?? qr.closest(".qr-dialog");
   const title = dialog?.querySelector("h2")?.textContent ?? "";
   const ticket = title.match(/整理券\s*(\d+)番/)?.[1];
-  const day = document.querySelector("main.app-shell footer span")?.textContent?.trim();
-  if (!ticket || !day) return null;
+  if (!ticket) return null;
 
-  const params = new URLSearchParams({ day, ticket });
+  const params = new URLSearchParams({ ticket });
   return `/wait?${params.toString()}`;
 }
 
