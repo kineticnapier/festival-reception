@@ -1,0 +1,21 @@
+/* Reception statistics use a simple visitor-age split:
+   university age and above / high-school age and below. */
+.reception-panel .detail-grid > .split-axis:last-child > h3 {
+  font-size: 0;
+}
+.reception-panel .detail-grid > .split-axis:last-child > h3::after {
+  content: "年齢区分";
+  font-size: 1rem;
+}
+.reception-panel .detail-grid > .split-axis:last-child .split-labels > span:first-child,
+.reception-panel .detail-grid > .split-axis:last-child .split-labels > span:last-child {
+  font-size: 0;
+}
+.reception-panel .detail-grid > .split-axis:last-child .split-labels > span:first-child::after {
+  content: "大学生以上";
+  font-size: 0.875rem;
+}
+.reception-panel .detail-grid > .split-axis:last-child .split-labels > span:last-child::after {
+  content: "高校生以下";
+  font-size: 0.875rem;
+}

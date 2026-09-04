@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import "./compact.css";
+import "./age-groups.css";
 
 export const metadata: Metadata = {
   title: "文化祭 受付・整理券システム",
