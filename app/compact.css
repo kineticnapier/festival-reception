@@ -42,12 +42,77 @@
   .action-button svg { width: 23px !important; height: 23px !important; }
   .queue-empty-bar { min-height: 48px; padding: 8px 13px; }
 
-  .paper-ticket-alert { gap: 16px; margin-top: 9px; padding: 11px 14px; }
-  .paper-ticket-alert p { font-size: 16px; }
-  .paper-ticket-alert strong { font-size: 54px; }
-  .paper-ticket-actions { min-width: 360px; gap: 6px; }
-  .paper-ticket-actions button, .paper-ticket-actions a { min-height: 44px; }
-  .handoff-confirm-button { min-height: 58px !important; font-size: 19px; }
+  /* During paper handoff, only the ticket number and confirmation action need to
+     dominate. Secondary actions stay available without competing for attention. */
+  .paper-ticket-alert {
+    display: grid;
+    grid-template-columns: minmax(210px, 0.8fr) minmax(390px, 1.8fr);
+    align-items: center;
+    gap: 18px;
+    margin-top: 9px;
+    padding: 12px 16px;
+  }
+  .paper-ticket-number {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-template-areas:
+      "state state"
+      "label number";
+    align-items: baseline;
+    column-gap: 12px;
+    row-gap: 3px;
+  }
+  .paper-ticket-number > span {
+    grid-area: state;
+    width: max-content;
+    max-width: 100%;
+    font-size: 0;
+    line-height: 1;
+  }
+  .paper-ticket-number > span::after {
+    content: "受け渡し待ち";
+    font-size: 12px;
+    line-height: 1;
+  }
+  .paper-ticket-number > p:not(.paper-ticket-instruction) {
+    grid-area: label;
+    margin: 0;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+  .paper-ticket-number > strong {
+    grid-area: number;
+    margin: 0;
+    font-size: 52px;
+    line-height: 0.95;
+  }
+  .paper-ticket-number > strong small { font-size: 18px; }
+  .paper-ticket-instruction { display: none; }
+
+  .paper-ticket-actions {
+    min-width: 0;
+    display: grid;
+    grid-template-rows: auto auto;
+    gap: 7px;
+  }
+  .handoff-confirm-button {
+    width: 100%;
+    min-height: 58px !important;
+    font-size: 19px;
+  }
+  .paper-secondary-actions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 7px;
+  }
+  .paper-secondary-actions button,
+  .paper-secondary-actions a {
+    min-height: 42px;
+    padding-inline: 8px;
+    font-size: 13px;
+  }
+  .paper-secondary-actions svg { width: 17px; height: 17px; }
+  .paper-ticket-actions > p { display: none; }
 
   .reception-panel .call-card { gap: 12px; padding: 13px 15px; }
   .queue-guidance { gap: 8px; }
