@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import GuideWaitDisplay from "./guide-wait-display";
 import MotionFeedback from "./motion-feedback";
 import QrDialogLink from "./qr-dialog-link";
 import "./globals.css";
@@ -8,6 +9,7 @@ import "./qr-dialog-link.css";
 import "./wait-public.css";
 import "./motion.css";
 import "./reception-traps.css";
+import "./guide-wait-display.css";
 
 export const metadata: Metadata = {
   title: "文化祭 受付・整理券システム",
@@ -29,6 +31,7 @@ export default function RootLayout({
         {children}
         <QrDialogLink />
         <MotionFeedback />
+        <GuideWaitDisplay />
       </body>
     </html>
   );
