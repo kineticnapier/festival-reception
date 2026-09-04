@@ -19,6 +19,8 @@ function elapsedLabel(createdAt: number) {
 
 export default function GuideWaitDisplay() {
   useEffect(() => {
+    if (location.pathname !== "/") return;
+
     let stopped = false;
     let refreshTimer: number | null = null;
     let minuteTimer: number | null = null;
@@ -45,6 +47,7 @@ export default function GuideWaitDisplay() {
     };
 
     const refresh = async () => {
+      if (!document.querySelector(".reception-topbar")) return;
       try {
         const response = await fetch("/api/status", { cache: "no-store" });
         if (!response.ok) return;
@@ -66,12 +69,15 @@ export default function GuideWaitDisplay() {
 
     const observer = new MutationObserver((mutations) => {
       if (mutations.some((mutation) => Array.from(mutation.addedNodes).some((node) =>
-        node instanceof Element && (node.matches(".ticket-row, .waiting-card") || node.querySelector(".ticket-row"))
+        node instanceof Element && (
+          node.matches(".reception-topbar, .ticket-row, .waiting-card") ||
+          node.querySelector(".reception-topbar, .ticket-row")
+        )
       ))) requestRefresh();
     });
 
     observer.observe(document.body, { childList: true, subtree: true });
-    void refresh();
+    requestRefresh();
     scheduleMinuteRender();
 
     return () => {
