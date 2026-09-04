@@ -1,0 +1,19 @@
+.qr-code {
+  cursor: pointer;
+}
+
+.qr-code::after {
+  content: "タップして確認ページを開く";
+  display: block;
+  margin-top: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  color: var(--muted-foreground);
+}
+
+.qr-code:focus-visible {
+  outline: 3px solid currentColor;
+  outline-offset: 6px;
+  border-radius: 8px;
+}
