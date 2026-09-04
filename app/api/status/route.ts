@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { getStatus, getStatusIfChanged } from "@/lib/server/reception";
+import { getStatus } from "@/lib/server/reception";
 import { verifyStaffSession } from "@/lib/server/staff-auth";
 
 export async function GET(request: Request) {
@@ -77,11 +77,11 @@ export async function GET(request: Request) {
     const staff = await verifyStaffSession(request);
     if (!staff) return Response.json({ error: "スタッフ認証が必要です" }, { status: 401 });
 
-    const sinceText = url.searchParams.get("since");
-    const sinceRevision = sinceText == null ? undefined : Number(sinceText);
-    const status = await getStatusIfChanged(day, sinceRevision);
+    // Even when the stored revision has not changed, elapsed stay times, queue
+    // priorities and wait estimates change as time passes. Return a fresh snapshot
+    // on every staff poll so those live values keep moving without another mutation.
+    const status = await getStatus(day);
     const headers = { "cache-control": "no-store", "server-timing": `total;dur=${(performance.now() - startedAt).toFixed(1)}` };
-    if (!status) return new Response(null, { status: 204, headers });
     return Response.json(status, { headers });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "状態を取得できませんでした" }, { status: 500 });
