@@ -1,3 +1,18 @@
+.paper-secondary-actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+
 .paper-secondary-actions > a[href="/admin"] {
   display: none;
+}
+
+/* The recommended group can be called now. `waitMinutes` is elapsed waiting
+   time, not the remaining wait estimate, so don't present it as "約N分待ち". */
+.guidance-result.recommended p {
+  font-size: 0;
+}
+
+.guidance-result.recommended p::after {
+  content: "今すぐ案内できます";
+  font-size: 14px;
 }
