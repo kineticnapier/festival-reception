@@ -1,0 +1,85 @@
+/* Short, functional motion for the operator/public screens. */
+
+.app-shell [data-slot="button"],
+.wait-public-shell a {
+  transition: transform 110ms ease, box-shadow 160ms ease, opacity 160ms ease;
+  transform-origin: center;
+}
+
+.app-shell [data-slot="button"]:not(:disabled):active,
+.wait-public-shell a:active {
+  transform: translateY(1px) scale(0.985);
+}
+
+.app-shell [role="tabpanel"][data-state="active"] {
+  animation: operator-panel-in 170ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.app-shell .compact-handoff,
+.app-shell .call-card,
+.wait-public-shell .wait-primary-card {
+  animation: operator-card-in 180ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.app-shell .sync-badge.processing span {
+  animation: operator-sync-pulse 900ms ease-in-out infinite;
+}
+
+.motion-value-pop {
+  animation: operator-value-pop 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  transform-origin: center;
+}
+
+@keyframes operator-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes operator-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(7px) scale(0.992);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes operator-value-pop {
+  0% { transform: scale(1); }
+  45% { transform: scale(1.055); }
+  100% { transform: scale(1); }
+}
+
+@keyframes operator-sync-pulse {
+  0%, 100% { opacity: 0.45; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1.15); }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .app-shell [data-slot="button"]:not(:disabled):hover {
+    transform: translateY(-1px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-shell [data-slot="button"],
+  .wait-public-shell a,
+  .app-shell [role="tabpanel"][data-state="active"],
+  .app-shell .compact-handoff,
+  .app-shell .call-card,
+  .wait-public-shell .wait-primary-card,
+  .app-shell .sync-badge.processing span,
+  .motion-value-pop {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+  }
+}
