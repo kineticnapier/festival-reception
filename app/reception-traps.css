@@ -1,0 +1,3 @@
+.paper-secondary-actions > a[href="/admin"] {
+  display: none;
+}
