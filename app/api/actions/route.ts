@@ -1,4 +1,5 @@
 import { currentDayKey, performAction } from "@/lib/server/reception";
+import { assertDirectEntryAllowed } from "@/lib/server/direct-entry-guard";
 import { chooseSplitContinuationTicket } from "@/lib/server/split-continuation";
 import { createSplitQueueIfNeeded } from "@/lib/server/split-queue";
 import { MutationBusyError, runIdempotentMutation } from "@/lib/server/operation-guard";
@@ -19,6 +20,9 @@ export async function POST(request: Request) {
       action: body.action,
       execute: async (requestId) => {
         const input = { ...body, requestId };
+        if (body.action === "REGISTER_DIRECT") {
+          await assertDirectEntryAllowed();
+        }
         if (body.action === "QUEUE_CREATE_GROUP") {
           const split = await createSplitQueueIfNeeded(input);
           if (split) return split;
