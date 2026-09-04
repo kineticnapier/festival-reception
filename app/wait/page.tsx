@@ -5,28 +5,30 @@ import { ExternalLink } from "lucide-react";
 
 type TicketStatus = "issuing" | "waiting" | "called" | "inside" | "exited" | "cancelled";
 type TicketInfo = { ticket_number: number; party_size: number; status: TicketStatus; ahead: number; estimatedMinutes: number | null };
-type WaitStatus = { called: { ticket_number: number } | null; ticket: TicketInfo | null; socialLinks: { id: number; label: string; url: string }[]; updatedAt: number };
+type WaitStatus = { dayKey: string; called: { ticket_number: number } | null; ticket: TicketInfo | null; socialLinks: { id: number; label: string; url: string }[]; updatedAt: number };
 
 export default function WaitPage() {
   const [status, setStatus] = useState<WaitStatus | null>(null);
   const [error, setError] = useState("");
-  const [query, setQuery] = useState<{ day: string; ticket: string } | null>(null);
+  const [query, setQuery] = useState<{ day: string | null; ticket: string } | null>(null);
   const [lastUpdated, setLastUpdated] = useState<number | null>(null);
   const refreshInFlightRef = useRef(false);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
       const params = new URLSearchParams(location.search);
-      setQuery({ day: params.get("day") ?? "", ticket: params.get("ticket") ?? "" });
+      setQuery({ day: params.get("day"), ticket: params.get("ticket") ?? "" });
     }, 0);
     return () => window.clearTimeout(timer);
   }, []);
 
   const refresh = useCallback(async () => {
-    if (!query?.day || !query.ticket || refreshInFlightRef.current || document.visibilityState === "hidden") return;
+    if (!query?.ticket || refreshInFlightRef.current || document.visibilityState === "hidden") return;
     refreshInFlightRef.current = true;
     try {
-      const response = await fetch(`/api/status?day=${encodeURIComponent(query.day)}&ticket=${encodeURIComponent(query.ticket)}`, { cache: "no-store" });
+      const params = new URLSearchParams({ ticket: query.ticket });
+      if (query.day) params.set("day", query.day);
+      const response = await fetch(`/api/status?${params.toString()}`, { cache: "no-store" });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error);
       setStatus((current) => !current || data.updatedAt >= current.updatedAt ? data : current);
@@ -98,7 +100,7 @@ export default function WaitPage() {
             </>}
 
       <footer className="wait-public-footer">
-        <span>{query?.day ?? ""}</span>
+        <span>{status?.dayKey ?? query?.day ?? ""}</span>
         <span>{lastUpdated ? `最終更新 ${clockLabel(lastUpdated)}` : "最新情報を取得中"}</span>
       </footer>
     </main>
