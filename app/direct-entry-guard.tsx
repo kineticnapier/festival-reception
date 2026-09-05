@@ -31,9 +31,11 @@ export default function DirectEntryGuard() {
         if (!note || !note.isConnected) {
           note = document.createElement("p");
           note.className = "reserve-entry-lock queue-entry-lock-note";
-          note.textContent = "整理券グループがいるため、直接入場はできません";
           actions.before(note);
         }
+        note.textContent = handoffPending
+          ? "紙を渡して「紙を渡した」を先に押してください"
+          : "整理券グループがいるため、直接入場はできません";
       } else if (note) {
         note.remove();
         note = null;

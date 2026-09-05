@@ -1,6 +1,7 @@
 import { currentDayKey, performAction } from "@/lib/server/reception";
 import { ensureDayDefaults } from "@/lib/server/day-defaults";
 import { assertDirectEntryAllowed } from "@/lib/server/direct-entry-guard";
+import { confirmDirectTicketHandoff, prepareDirectEntryTicket } from "@/lib/server/direct-entry-ticket";
 import { chooseSplitContinuationTicket } from "@/lib/server/split-continuation";
 import { createSplitQueueIfNeeded } from "@/lib/server/split-queue";
 import { MutationBusyError, runIdempotentMutation } from "@/lib/server/operation-guard";
@@ -26,6 +27,11 @@ export async function POST(request: Request) {
         const input = { ...body, requestId };
         if (body.action === "REGISTER_DIRECT") {
           await assertDirectEntryAllowed();
+          return prepareDirectEntryTicket(input);
+        }
+        if (body.action === "CONFIRM_TICKET_HANDOFF") {
+          const direct = await confirmDirectTicketHandoff(input);
+          if (direct) return direct;
         }
         if (body.action === "QUEUE_CREATE_GROUP") {
           const split = await createSplitQueueIfNeeded(input);

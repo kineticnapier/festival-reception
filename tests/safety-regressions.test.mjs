@@ -73,6 +73,19 @@ test("受付と管理の更新は同じD1 mutation guardを通る", async () => 
   assert.match(guard, /ensureHardeningSchema/);
 });
 
+test("直接入場も紙整理券の受け渡しを経て入場状態になる", async () => {
+  const route = await readFile(new URL("../app/api/actions/route.ts", import.meta.url), "utf8");
+  const directTicket = await readFile(new URL("../lib/server/direct-entry-ticket.ts", import.meta.url), "utf8");
+  assert.match(route, /prepareDirectEntryTicket/);
+  assert.match(route, /confirmDirectTicketHandoff/);
+  assert.match(directTicket, /performAction\("QUEUE_CREATE_GROUP"/);
+  assert.match(directTicket, /requestId: `direct:\$\{crypto\.randomUUID\(\)\}`/);
+  assert.match(directTicket, /g\.status = 'issuing'/);
+  assert.match(directTicket, /SET status = 'inside', admitted_at = \?/);
+  assert.match(directTicket, /SELECT \?, \?, 'ADMIT'/);
+  assert.match(directTicket, /next_ticket = MAX\(next_ticket, \?\)/);
+});
+
 test("hardeningテーブルはWorker自身が安全に初期化できる", async () => {
   const schema = await readFile(new URL("../lib/server/hardening-schema.ts", import.meta.url), "utf8");
   const migration = await readFile(new URL("../drizzle/0005_festival_hardening.sql", import.meta.url), "utf8");
