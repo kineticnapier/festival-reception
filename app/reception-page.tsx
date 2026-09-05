@@ -433,6 +433,8 @@ export default function ReceptionPage() {
   const walkInFreeSeats = Math.max(0, status.settings.activeCapacity - status.currentCount - calledReservedSeats);
   const overCapacity = partySize > walkInFreeSeats;
   const queueActive = status.waiting.length > 0 || status.called != null;
+  const guideNeedsAttention = queueActive;
+  const exitNeedsAttention = status.inside.length > 0;
   const reserving = status.guidance.mode === "reserving" && status.guidance.target != null;
   const recommended = status.guidance.target;
   const selectedExitGroups = status.inside.filter((group) => selectedExitIds.includes(group.id));
@@ -459,8 +461,8 @@ export default function ReceptionPage() {
     <Tabs defaultValue="reception" className="workspace">
       <TabsList className="mode-tabs operator-tabs">
         <TabsTrigger value="reception">受付</TabsTrigger>
-        <TabsTrigger value="guide">案内</TabsTrigger>
-        <TabsTrigger value="exit">退場</TabsTrigger>
+        <TabsTrigger value="guide" aria-label={guideNeedsAttention ? "案内・未処理あり" : "案内"}>案内{guideNeedsAttention && <span aria-hidden="true" className="pointer-events-none absolute right-1 top-1 grid size-4 place-items-center rounded-full bg-red-600 text-[11px] font-black leading-none text-white shadow-sm">!</span>}</TabsTrigger>
+        <TabsTrigger value="exit" aria-label={exitNeedsAttention ? "退場・未処理あり" : "退場"}>退場{exitNeedsAttention && <span aria-hidden="true" className="pointer-events-none absolute right-1 top-1 grid size-4 place-items-center rounded-full bg-red-600 text-[11px] font-black leading-none text-white shadow-sm">!</span>}</TabsTrigger>
         <TabsTrigger value="record">記録</TabsTrigger>
       </TabsList>
 
