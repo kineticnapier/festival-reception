@@ -112,12 +112,9 @@ export default function ReceptionPage() {
 
   const [partySize, setPartySize] = useState(2);
   const [sourcePreset, setSourcePreset] = useState<SourcePreset>("unknown");
-  const [sourceKnown, setSourceKnown] = useState(false);
   const [studentCount, setStudentCount] = useState(0);
   const [grades, setGrades] = useState({ m1: 0, m2: 0, m3: 0, h1: 0, h2: 0 });
-  const [genderKnown, setGenderKnown] = useState(false);
   const [maleCount, setMaleCount] = useState<number | null>(null);
-  const [ageKnown, setAgeKnown] = useState(false);
   const [adultCount, setAdultCount] = useState<number | null>(null);
 
   const [callDialogOpen, setCallDialogOpen] = useState(false);
@@ -209,18 +206,18 @@ export default function ReceptionPage() {
 
   function clearBreakdowns() {
     setSourcePreset("unknown");
-    setSourceKnown(false);
     setStudentCount(0);
     setGrades({ m1: 0, m2: 0, m3: 0, h1: 0, h2: 0 });
-    setGenderKnown(false);
     setMaleCount(null);
-    setAgeKnown(false);
     setAdultCount(null);
   }
 
   function selectSourcePreset(next: SourcePreset) {
-    if (next === "unknown") clearBreakdowns();
-    else setSourcePreset("mixed");
+    setSourcePreset(next);
+    if (next === "mixed") {
+      setMaleCount((current) => current ?? Math.round(partySize / 2));
+      setAdultCount((current) => current ?? Math.round(partySize / 2));
+    }
   }
 
   function changeStudentCount(next: number) {
@@ -247,8 +244,9 @@ export default function ReceptionPage() {
       highGrade2Count: null,
       highGrade3Count: null,
     };
-    const source: SourceCounts = sourcePreset === "mixed" && sourceKnown
-      ? {
+    const source: SourceCounts = sourcePreset === "unknown"
+      ? unknown
+      : {
           studentCount,
           externalCount: partySize - studentCount,
           middleGrade1Count: grades.m1,
@@ -257,21 +255,20 @@ export default function ReceptionPage() {
           highGrade1Count: grades.h1,
           highGrade2Count: grades.h2,
           highGrade3Count: 0,
-        }
-      : unknown;
+        };
     return {
       partySize,
       ...source,
-      maleCount: sourcePreset === "mixed" && genderKnown ? maleCount : null,
-      femaleCount: sourcePreset === "mixed" && genderKnown && maleCount != null ? partySize - maleCount : null,
-      adultCount: sourcePreset === "mixed" && ageKnown ? adultCount : null,
-      childCount: sourcePreset === "mixed" && ageKnown && adultCount != null ? partySize - adultCount : null,
+      maleCount: sourcePreset === "mixed" ? maleCount : null,
+      femaleCount: sourcePreset === "mixed" && maleCount != null ? partySize - maleCount : null,
+      adultCount: sourcePreset === "mixed" ? adultCount : null,
+      childCount: sourcePreset === "mixed" && adultCount != null ? partySize - adultCount : null,
     };
-  }, [partySize, sourcePreset, sourceKnown, studentCount, grades, genderKnown, maleCount, ageKnown, adultCount]);
+  }, [partySize, sourcePreset, studentCount, grades, maleCount, adultCount]);
 
   const gradeTotal = Object.values(grades).reduce((sum, value) => sum + value, 0);
   const unassignedGradeCount = Math.max(0, studentCount - gradeTotal);
-  const mixedInvalid = sourcePreset === "mixed" && sourceKnown && gradeTotal > studentCount;
+  const mixedInvalid = sourcePreset === "mixed" && gradeTotal > studentCount;
 
   async function act(action: string, extra: Record<string, unknown> = {}, optimistic?: (current: Status) => Status) {
     if (busyRef.current) return false;
@@ -508,27 +505,18 @@ export default function ReceptionPage() {
 
           {sourcePreset === "mixed" && <div className="demographic-details"><div className="detail-grid">
             <section>
-              <div className="compact-heading"><h3>在校生 / 外部</h3><Button type="button" variant="outline" size="sm" onClick={() => { setSourceKnown((current) => !current); if (sourceKnown) { setStudentCount(0); setGrades({ m1: 0, m2: 0, m3: 0, h1: 0, h2: 0 }); } }}>{sourceKnown ? "未入力に戻す" : "入力する"}</Button></div>
-              {!sourceKnown ? <p className="validation-hint">未入力</p> : <>
-                <SplitSlider title="在校生 / 外部" lead="在校生" follow="外部" total={partySize} value={studentCount} onChange={changeStudentCount} />
-                {studentCount > 0 && <div className="grade-block">
-                  <h4>学年</h4>
-                  <div className="grade-grid">
-                    {([['m1','中1'],['m2','中2'],['m3','中3'],['h1','高1'],['h2','高2']] as [keyof typeof grades,string][]).map(([key,label]) => <CountEditor key={key} label={label} value={grades[key]} max={grades[key] + Math.max(0, studentCount - gradeTotal)} onChange={(value) => setGrades({ ...grades, [key]: value })} />)}
-                  </div>
-                  {unassignedGradeCount > 0 && <p className="validation-hint">学年未入力 {unassignedGradeCount}人</p>}
-                  {mixedInvalid && <p className="validation-error">学年人数が在校生人数を超えています</p>}
-                </div>}
-              </>}
+              <SplitSlider title="在校生 / 外部" lead="在校生" follow="外部" total={partySize} value={studentCount} onChange={changeStudentCount} />
+              {studentCount > 0 && <div className="grade-block">
+                <h4>学年</h4>
+                <div className="grade-grid">
+                  {([['m1','中1'],['m2','中2'],['m3','中3'],['h1','高1'],['h2','高2']] as [keyof typeof grades,string][]).map(([key,label]) => <CountEditor key={key} label={label} value={grades[key]} max={grades[key] + Math.max(0, studentCount - gradeTotal)} onChange={(value) => setGrades({ ...grades, [key]: value })} />)}
+                </div>
+                {unassignedGradeCount > 0 && <p className="validation-hint">未入力 {unassignedGradeCount}人</p>}
+                {mixedInvalid && <p className="validation-error">学年人数が在校生人数を超えています</p>}
+              </div>}
             </section>
-            <section>
-              <div className="compact-heading"><h3>男女</h3><Button type="button" variant="outline" size="sm" onClick={() => { if (genderKnown) { setGenderKnown(false); setMaleCount(null); } else { setGenderKnown(true); setMaleCount(0); } }}>{genderKnown ? "未入力に戻す" : "入力する"}</Button></div>
-              {genderKnown && maleCount != null ? <SplitSlider title="男女" lead="男" follow="女" total={partySize} value={maleCount} onChange={setMaleCount} /> : <p className="validation-hint">未入力</p>}
-            </section>
-            <section>
-              <div className="compact-heading"><h3>大学生以上 / 高校生以下</h3><Button type="button" variant="outline" size="sm" onClick={() => { if (ageKnown) { setAgeKnown(false); setAdultCount(null); } else { setAgeKnown(true); setAdultCount(0); } }}>{ageKnown ? "未入力に戻す" : "入力する"}</Button></div>
-              {ageKnown && adultCount != null ? <SplitSlider title="年齢" lead="大学生以上" follow="高校生以下" total={partySize} value={adultCount} onChange={setAdultCount} /> : <p className="validation-hint">未入力</p>}
-            </section>
+            <SplitSlider title="男女" lead="男" follow="女" total={partySize} value={maleCount ?? Math.round(partySize / 2)} onChange={setMaleCount} />
+            <SplitSlider title="大人 / 子供" lead="大人" follow="子供" total={partySize} value={adultCount ?? Math.round(partySize / 2)} onChange={setAdultCount} />
           </div></div>}
 
           {overCapacity && <p className="capacity-warning">空き {walkInFreeSeats}人</p>}
