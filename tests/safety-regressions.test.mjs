@@ -107,15 +107,15 @@ test("手動修正はタブを開いた時の最新revisionを使い、古い値
   assert.match(admin, /AND revision = \?/);
 });
 
-test("詳細内訳は未入力を保てて、登録成功後は人数以外をリセットする", async () => {
+test("詳細内訳は従来どおり詳細選択時にまとめて入力する", async () => {
   const page = await readFile(new URL("../app/reception-page.tsx", import.meta.url), "utf8");
-  assert.match(page, /sourceKnown/);
-  assert.match(page, /genderKnown/);
-  assert.match(page, /ageKnown/);
-  assert.match(page, /clearBreakdowns\(\)/);
+  assert.doesNotMatch(page, /sourceKnown|genderKnown|ageKnown/);
+  assert.match(page, /setMaleCount\(\(current\) => current \?\? Math\.round\(partySize \/ 2\)\)/);
+  assert.match(page, /setAdultCount\(\(current\) => current \?\? Math\.round\(partySize \/ 2\)\)/);
+  assert.match(page, /SplitSlider title="在校生 \/ 外部"/);
+  assert.match(page, /SplitSlider title="男女"/);
+  assert.match(page, /SplitSlider title="大人 \/ 子供"/);
   assert.match(page, /if \(success\) clearBreakdowns\(\)/);
-  assert.doesNotMatch(page, /Math\.round\(partySize \/ 2\)/);
-  assert.match(page, /未入力に戻す/);
 });
 
 test("受付画面は同期経過秒を表示する", async () => {
