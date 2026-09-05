@@ -1,0 +1,219 @@
+name: Restore demographic input flow
+
+on:
+  push:
+    branches:
+      - fix/restore-demographic-input
+    paths:
+      - .github/workflows/restore-demographic-input.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/restore-demographic-input
+      - name: Restore previous demographic UI
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(text: str, old: str, new: str, label: str) -> str:
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{label}: expected 1 match, got {count}")
+              return text.replace(old, new, 1)
+
+          page_path = Path("app/reception-page.tsx")
+          page = page_path.read_text()
+
+          page = replace_once(page,
+          '''  const [sourcePreset, setSourcePreset] = useState<SourcePreset>("unknown");
+          const [sourceKnown, setSourceKnown] = useState(false);
+          const [studentCount, setStudentCount] = useState(0);
+          const [grades, setGrades] = useState({ m1: 0, m2: 0, m3: 0, h1: 0, h2: 0 });
+          const [genderKnown, setGenderKnown] = useState(false);
+          const [maleCount, setMaleCount] = useState<number | null>(null);
+          const [ageKnown, setAgeKnown] = useState(false);
+          const [adultCount, setAdultCount] = useState<number | null>(null);
+          ''',
+          '''  const [sourcePreset, setSourcePreset] = useState<SourcePreset>("unknown");
+          const [studentCount, setStudentCount] = useState(0);
+          const [grades, setGrades] = useState({ m1: 0, m2: 0, m3: 0, h1: 0, h2: 0 });
+          const [maleCount, setMaleCount] = useState<number | null>(null);
+          const [adultCount, setAdultCount] = useState<number | null>(null);
+          ''', "state")
+
+          page = replace_once(page,
+          '''  function clearBreakdowns() {
+            setSourcePreset("unknown");
+            setSourceKnown(false);
+            setStudentCount(0);
+            setGrades({ m1: 0, m2: 0, m3: 0, h1: 0, h2: 0 });
+            setGenderKnown(false);
+            setMaleCount(null);
+            setAgeKnown(false);
+            setAdultCount(null);
+          }
+
+          function selectSourcePreset(next: SourcePreset) {
+            if (next === "unknown") clearBreakdowns();
+            else setSourcePreset("mixed");
+          }
+          ''',
+          '''  function clearBreakdowns() {
+            setSourcePreset("unknown");
+            setStudentCount(0);
+            setGrades({ m1: 0, m2: 0, m3: 0, h1: 0, h2: 0 });
+            setMaleCount(null);
+            setAdultCount(null);
+          }
+
+          function selectSourcePreset(next: SourcePreset) {
+            setSourcePreset(next);
+            if (next === "mixed") {
+              setMaleCount((current) => current ?? Math.round(partySize / 2));
+              setAdultCount((current) => current ?? Math.round(partySize / 2));
+            }
+          }
+          ''', "preset")
+
+          page = replace_once(page,
+          '''    const source: SourceCounts = sourcePreset === "mixed" && sourceKnown
+                ? {
+                    studentCount,
+                    externalCount: partySize - studentCount,
+                    middleGrade1Count: grades.m1,
+                    middleGrade2Count: grades.m2,
+                    middleGrade3Count: grades.m3,
+                    highGrade1Count: grades.h1,
+                    highGrade2Count: grades.h2,
+                    highGrade3Count: 0,
+                  }
+                : unknown;
+              return {
+                partySize,
+                ...source,
+                maleCount: sourcePreset === "mixed" && genderKnown ? maleCount : null,
+                femaleCount: sourcePreset === "mixed" && genderKnown && maleCount != null ? partySize - maleCount : null,
+                adultCount: sourcePreset === "mixed" && ageKnown ? adultCount : null,
+                childCount: sourcePreset === "mixed" && ageKnown && adultCount != null ? partySize - adultCount : null,
+              };
+            }, [partySize, sourcePreset, sourceKnown, studentCount, grades, genderKnown, maleCount, ageKnown, adultCount]);
+
+            const gradeTotal = Object.values(grades).reduce((sum, value) => sum + value, 0);
+            const unassignedGradeCount = Math.max(0, studentCount - gradeTotal);
+            const mixedInvalid = sourcePreset === "mixed" && sourceKnown && gradeTotal > studentCount;
+          ''',
+          '''    const source: SourceCounts = sourcePreset === "unknown"
+                ? unknown
+                : {
+                    studentCount,
+                    externalCount: partySize - studentCount,
+                    middleGrade1Count: grades.m1,
+                    middleGrade2Count: grades.m2,
+                    middleGrade3Count: grades.m3,
+                    highGrade1Count: grades.h1,
+                    highGrade2Count: grades.h2,
+                    highGrade3Count: 0,
+                  };
+              return {
+                partySize,
+                ...source,
+                maleCount: sourcePreset === "mixed" ? maleCount : null,
+                femaleCount: sourcePreset === "mixed" && maleCount != null ? partySize - maleCount : null,
+                adultCount: sourcePreset === "mixed" ? adultCount : null,
+                childCount: sourcePreset === "mixed" && adultCount != null ? partySize - adultCount : null,
+              };
+            }, [partySize, sourcePreset, studentCount, grades, maleCount, adultCount]);
+
+            const gradeTotal = Object.values(grades).reduce((sum, value) => sum + value, 0);
+            const unassignedGradeCount = Math.max(0, studentCount - gradeTotal);
+            const mixedInvalid = sourcePreset === "mixed" && gradeTotal > studentCount;
+          ''', "payload")
+
+          page = replace_once(page,
+          '''          {sourcePreset === "mixed" && <div className="demographic-details"><div className="detail-grid">
+                      <section>
+                        <div className="compact-heading"><h3>在校生 / 外部</h3><Button type="button" variant="outline" size="sm" onClick={() => { setSourceKnown((current) => !current); if (sourceKnown) { setStudentCount(0); setGrades({ m1: 0, m2: 0, m3: 0, h1: 0, h2: 0 }); } }}>{sourceKnown ? "未入力に戻す" : "入力する"}</Button></div>
+                        {!sourceKnown ? <p className="validation-hint">未入力</p> : <>
+                          <SplitSlider title="在校生 / 外部" lead="在校生" follow="外部" total={partySize} value={studentCount} onChange={changeStudentCount} />
+                          {studentCount > 0 && <div className="grade-block">
+                            <h4>学年</h4>
+                            <div className="grade-grid">
+                              {([['m1','中1'],['m2','中2'],['m3','中3'],['h1','高1'],['h2','高2']] as [keyof typeof grades,string][]).map(([key,label]) => <CountEditor key={key} label={label} value={grades[key]} max={grades[key] + Math.max(0, studentCount - gradeTotal)} onChange={(value) => setGrades({ ...grades, [key]: value })} />)}
+                            </div>
+                            {unassignedGradeCount > 0 && <p className="validation-hint">学年未入力 {unassignedGradeCount}人</p>}
+                            {mixedInvalid && <p className="validation-error">学年人数が在校生人数を超えています</p>}
+                          </div>}
+                        </>}
+                      </section>
+                      <section>
+                        <div className="compact-heading"><h3>男女</h3><Button type="button" variant="outline" size="sm" onClick={() => { if (genderKnown) { setGenderKnown(false); setMaleCount(null); } else { setGenderKnown(true); setMaleCount(0); } }}>{genderKnown ? "未入力に戻す" : "入力する"}</Button></div>
+                        {genderKnown && maleCount != null ? <SplitSlider title="男女" lead="男" follow="女" total={partySize} value={maleCount} onChange={setMaleCount} /> : <p className="validation-hint">未入力</p>}
+                      </section>
+                      <section>
+                        <div className="compact-heading"><h3>大学生以上 / 高校生以下</h3><Button type="button" variant="outline" size="sm" onClick={() => { if (ageKnown) { setAgeKnown(false); setAdultCount(null); } else { setAgeKnown(true); setAdultCount(0); } }}>{ageKnown ? "未入力に戻す" : "入力する"}</Button></div>
+                        {ageKnown && adultCount != null ? <SplitSlider title="年齢" lead="大学生以上" follow="高校生以下" total={partySize} value={adultCount} onChange={setAdultCount} /> : <p className="validation-hint">未入力</p>}
+                      </section>
+                    </div></div>}
+          ''',
+          '''          {sourcePreset === "mixed" && <div className="demographic-details"><div className="detail-grid">
+                      <section>
+                        <SplitSlider title="在校生 / 外部" lead="在校生" follow="外部" total={partySize} value={studentCount} onChange={changeStudentCount} />
+                        {studentCount > 0 && <div className="grade-block">
+                          <h4>学年</h4>
+                          <div className="grade-grid">
+                            {([['m1','中1'],['m2','中2'],['m3','中3'],['h1','高1'],['h2','高2']] as [keyof typeof grades,string][]).map(([key,label]) => <CountEditor key={key} label={label} value={grades[key]} max={grades[key] + Math.max(0, studentCount - gradeTotal)} onChange={(value) => setGrades({ ...grades, [key]: value })} />)}
+                          </div>
+                          {unassignedGradeCount > 0 && <p className="validation-hint">未入力 {unassignedGradeCount}人</p>}
+                          {mixedInvalid && <p className="validation-error">学年人数が在校生人数を超えています</p>}
+                        </div>}
+                      </section>
+                      <SplitSlider title="男女" lead="男" follow="女" total={partySize} value={maleCount ?? Math.round(partySize / 2)} onChange={setMaleCount} />
+                      <SplitSlider title="大人 / 子供" lead="大人" follow="子供" total={partySize} value={adultCount ?? Math.round(partySize / 2)} onChange={setAdultCount} />
+                    </div></div>}
+          ''', "ui")
+
+          page_path.write_text(page)
+
+          test_path = Path("tests/safety-regressions.test.mjs")
+          tests = test_path.read_text()
+          old_test = '''test("詳細内訳は未入力を保てて、登録成功後は人数以外をリセットする", async () => {
+            const page = await readFile(new URL("../app/reception-page.tsx", import.meta.url), "utf8");
+            assert.match(page, /sourceKnown/);
+            assert.match(page, /genderKnown/);
+            assert.match(page, /ageKnown/);
+            assert.match(page, /clearBreakdowns\\(\\)/);
+            assert.match(page, /if \\(success\\) clearBreakdowns\\(\\)/);
+            assert.doesNotMatch(page, /Math\\.round\\(partySize \\/ 2\\)/);
+            assert.match(page, /未入力に戻す/);
+          });'''
+          new_test = '''test("詳細内訳は従来どおり詳細選択時にまとめて入力する", async () => {
+            const page = await readFile(new URL("../app/reception-page.tsx", import.meta.url), "utf8");
+            assert.doesNotMatch(page, /sourceKnown|genderKnown|ageKnown/);
+            assert.match(page, /setMaleCount\\(\\(current\\) => current \\?\\? Math\\.round\\(partySize \\/ 2\\)\\)/);
+            assert.match(page, /setAdultCount\\(\\(current\\) => current \\?\\? Math\\.round\\(partySize \\/ 2\\)\\)/);
+            assert.match(page, /SplitSlider title="在校生 \\/ 外部"/);
+            assert.match(page, /SplitSlider title="男女"/);
+            assert.match(page, /SplitSlider title="大人 \\/ 子供"/);
+            assert.match(page, /if \\(success\\) clearBreakdowns\\(\\)/);
+          });'''
+          tests = replace_once(tests, old_test, new_test, "test")
+          test_path.write_text(tests)
+          PY
+      - name: Commit rollback
+        shell: bash
+        run: |
+          git diff --check
+          git config user.name "Kinetic Napier"
+          git config user.email "u61819269@gmail.com"
+          git rm .github/workflows/restore-demographic-input.yml
+          git add app/reception-page.tsx tests/safety-regressions.test.mjs
+          git commit -m "Restore demographic input flow"
+          git push origin HEAD:fix/restore-demographic-input
