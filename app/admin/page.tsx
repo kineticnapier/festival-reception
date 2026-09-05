@@ -23,7 +23,7 @@ type SocialLink = { id?: number; label: string; url: string; enabled: boolean };
 type EventRow = { id: number; type: string; ticket_number: number | null; group_id: number | null; party_size: number; details: string | null; undone: number; created_at: number };
 type Dashboard = {
   status: {
-    dayKey: string; currentCount: number; totalCount: number; maxCurrent: number; nextTicketNumber: number;
+    dayKey: string; currentCount: number; totalCount: number; maxCurrent: number; nextTicketNumber: number; revision: number;
     waitingCount: number; waitingPeople: number; called: { ticket_number: number } | null;
     settings: { normalCapacity: number; overflowCapacity: number; overflowEnabled: boolean; activeCapacity: number; priorStayMinutes: number; reserveWaitMinutes: number };
     estimate: { predictedStayMinutes: number; actualSampleCount: number; actualWeight: number; peoplePerMinute: number };
@@ -53,27 +53,49 @@ export default function AdminPage() {
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [activeTab, setActiveTab] = useState("overview");
   const [links, setLinks] = useState<SocialLink[]>([]);
   const [correction, setCorrection] = useState({ currentCount: "0", totalCount: "0", nextTicket: "1", calledNumber: "" });
+  const [correctionRevision, setCorrectionRevision] = useState<number | null>(null);
   const [settings, setSettings] = useState({ normalCapacity: "13", overflowCapacity: "16", overflowEnabled: false, priorStayMinutes: "2.5", reserveWaitMinutes: "5" });
   const hydratedRef = useRef(false);
+
+  const syncCorrection = useCallback((next: Dashboard) => {
+    setCorrection({
+      currentCount: String(next.status.currentCount),
+      totalCount: String(next.status.totalCount),
+      nextTicket: String(next.status.nextTicketNumber),
+      calledNumber: next.status.called?.ticket_number ? String(next.status.called.ticket_number) : "",
+    });
+    setCorrectionRevision(next.status.revision);
+  }, []);
 
   const refresh = useCallback(async () => {
     try {
       const response = await fetch("/api/admin", { cache: "no-store" });
       const data = await response.json();
-      if (response.status === 401) { setAuthenticated(false); setDashboard(null); return; }
+      if (response.status === 401) { setAuthenticated(false); setDashboard(null); return null; }
       if (!response.ok) throw new Error(data.error);
       const next = data as Dashboard;
       setDashboard(next); setError("");
       if (!hydratedRef.current) {
         setLinks(next.socialLinks.map((link) => ({ id: link.id, label: link.label, url: link.url, enabled: Boolean(link.enabled) })));
-        setCorrection({ currentCount: String(next.status.currentCount), totalCount: String(next.status.totalCount), nextTicket: String(next.status.nextTicketNumber), calledNumber: next.status.called?.ticket_number ? String(next.status.called.ticket_number) : "" });
         setSettings({ normalCapacity: String(next.status.settings.normalCapacity), overflowCapacity: String(next.status.settings.overflowCapacity), overflowEnabled: next.status.settings.overflowEnabled, priorStayMinutes: String(next.status.settings.priorStayMinutes), reserveWaitMinutes: String(next.status.settings.reserveWaitMinutes) });
         hydratedRef.current = true;
       }
-    } catch (err) { setError(err instanceof Error ? err.message : "管理データを取得できませんでした"); }
+      return next;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "管理データを取得できませんでした");
+      return null;
+    }
   }, []);
+
+  async function changeTab(value: string) {
+    setActiveTab(value);
+    if (value !== "correct") return;
+    const latest = await refresh();
+    if (latest) syncCorrection(latest);
+  }
 
   useEffect(() => {
     fetch("/api/admin-auth", { cache: "no-store" }).then((response) => response.json()).then((data) => { setAuthenticated(Boolean(data.authenticated)); setSessionId(data.sessionId ?? null); }).catch(() => setAuthenticated(false));
@@ -103,7 +125,10 @@ export default function AdminPage() {
       const data = await response.json();
       if (response.status === 401) { setAuthenticated(false); setDashboard(null); throw new Error(data.error); }
       if (!response.ok) throw new Error(data.error);
-      setDashboard(data); toast.success("保存しました");
+      const next = data as Dashboard;
+      setDashboard(next);
+      if (actionName === "CORRECT_STATE") syncCorrection(next);
+      toast.success("保存しました");
     } catch (err) { toast.error(err instanceof Error ? err.message : "操作に失敗しました"); }
     finally { setBusy(false); }
   }
@@ -122,7 +147,7 @@ export default function AdminPage() {
     {error && <div className="admin-error">自動更新に失敗しました：{error}<Button size="sm" variant="outline" onClick={() => refresh()}><RefreshCw />再試行</Button></div>}
     <section className="number-strip admin-metrics"><AdminMetric label="現在 / 定員" value={`${dashboard.status.currentCount}/${dashboard.status.settings.activeCapacity}`} /><AdminMetric label="累計来場者" value={`${dashboard.status.totalCount}人`} /><AdminMetric label="最大同時人数" value={`${dashboard.status.maxCurrent}人`} /><AdminMetric label="待機" value={`${dashboard.status.waitingCount}組・${dashboard.status.waitingPeople}人`} /></section>
 
-    <Tabs defaultValue="overview" className="workspace">
+    <Tabs value={activeTab} onValueChange={(value) => void changeTab(value)} className="workspace">
       <TabsList className="mode-tabs admin-tabs"><TabsTrigger value="overview">概要・統計</TabsTrigger><TabsTrigger value="correct">手動修正</TabsTrigger><TabsTrigger value="social">SNS</TabsTrigger><TabsTrigger value="sessions">端末</TabsTrigger><TabsTrigger value="settings">設定・削除</TabsTrigger></TabsList>
 
       <TabsContent value="overview" className="admin-grid">
@@ -134,7 +159,7 @@ export default function AdminPage() {
       </TabsContent>
 
       <TabsContent value="correct" className="admin-grid">
-        <section className="control-card"><p className="kicker">全体状態</p><h2>人数・番号を修正</h2><p className="admin-note">通信切れや押し間違いで表示がずれた場合だけ使います。紙の受け渡し確認中は、その紙番号も同時に修正されます。</p><div className="admin-form-grid"><label>現在人数<Input inputMode="numeric" value={correction.currentCount} onChange={(event) => setCorrection({ ...correction, currentCount: event.target.value })} /></label><label>累計人数<Input inputMode="numeric" value={correction.totalCount} onChange={(event) => setCorrection({ ...correction, totalCount: event.target.value })} /></label><label>次に発行する番号<Input inputMode="numeric" value={correction.nextTicket} onChange={(event) => setCorrection({ ...correction, nextTicket: event.target.value })} /></label><label>現在案内中（空欄可）<Input inputMode="numeric" value={correction.calledNumber} onChange={(event) => setCorrection({ ...correction, calledNumber: event.target.value })} /></label></div><Button size="lg" disabled={busy} onClick={() => action("CORRECT_STATE", { currentCount: Number(correction.currentCount), totalCount: Number(correction.totalCount), nextTicket: Number(correction.nextTicket), calledNumber: correction.calledNumber ? Number(correction.calledNumber) : null })}><Save />状態を保存</Button></section>
+        <section className="control-card"><p className="kicker">全体状態</p><h2>人数・番号を修正</h2><p className="admin-note">このタブを開いた時点の最新値を読み込みます。編集中に受付操作が入った場合は保存を拒否するため、タブを開き直して確認してください。</p><div className="admin-form-grid"><label>現在人数<Input inputMode="numeric" value={correction.currentCount} onChange={(event) => setCorrection({ ...correction, currentCount: event.target.value })} /></label><label>累計人数<Input inputMode="numeric" value={correction.totalCount} onChange={(event) => setCorrection({ ...correction, totalCount: event.target.value })} /></label><label>次に発行する番号<Input inputMode="numeric" value={correction.nextTicket} onChange={(event) => setCorrection({ ...correction, nextTicket: event.target.value })} /></label><label>現在案内中（空欄可）<Input inputMode="numeric" value={correction.calledNumber} onChange={(event) => setCorrection({ ...correction, calledNumber: event.target.value })} /></label></div><Button size="lg" disabled={busy || correctionRevision == null} onClick={() => action("CORRECT_STATE", { currentCount: Number(correction.currentCount), totalCount: Number(correction.totalCount), nextTicket: Number(correction.nextTicket), calledNumber: correction.calledNumber ? Number(correction.calledNumber) : null, expectedRevision: correctionRevision })}><Save />状態を保存</Button></section>
         <section className="control-card"><p className="kicker">整理券・グループ</p><h2>個別に状態を修正</h2><div className="admin-group-list">{dashboard.groups.slice(0, 40).map((group) => <div key={group.id}><div><strong>{group.ticket_number ? `${group.ticket_number}番` : `直接 #${group.id}`}</strong><span>{group.party_size}人・{timeLabel(group.created_at)}</span></div>{group.status === "issuing" ? <em className="admin-pending-ticket">紙受け渡し未確認</em> : <select aria-label={`${group.id}の状態`} value={group.status} disabled={busy} onChange={(event) => action("SET_GROUP_STATUS", { groupId: group.id, status: event.target.value })}>{Object.entries(statusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>}</div>)}</div></section>
       </TabsContent>
 
