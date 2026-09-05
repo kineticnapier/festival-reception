@@ -86,7 +86,7 @@ test("直接入場も紙整理券の受け渡しを経て入場状態になる",
   assert.match(directTicket, /next_ticket = MAX\(next_ticket, \?\)/);
 });
 
-test("操作ごとの取り消しは対象op_idだけを戻し、後続処理を保護する", async () => {
+test("操作ごとの取り消しは既存の完了ポップアップ内のボタンから対象op_idだけを戻す", async () => {
   const route = await readFile(new URL("../app/api/actions/route.ts", import.meta.url), "utf8");
   const undo = await readFile(new URL("../lib/server/operation-undo.ts", import.meta.url), "utf8");
   const feedback = await readFile(new URL("../app/operation-undo-feedback.tsx", import.meta.url), "utf8");
@@ -96,9 +96,12 @@ test("操作ごとの取り消しは対象op_idだけを戻し、後続処理を
   assert.match(undo, /id > \?/);
   assert.match(undo, /group_id IN/);
   assert.match(undo, /UPDATE events SET undone = 1/);
-  assert.match(feedback, /operationUndoId/);
+  assert.match(feedback, /toastApi\.success = wrappedSuccess/);
+  assert.match(feedback, /withUndoAction/);
+  assert.match(feedback, /label: "取り消す"/);
   assert.match(feedback, /UNDO_OPERATION/);
-  assert.match(feedback, /この操作は取り消せます/);
+  assert.doesNotMatch(feedback, /この操作は取り消せます/);
+  assert.doesNotMatch(feedback, /MutationObserver/);
 });
 
 test("hardeningテーブルはWorker自身が安全に初期化できる", async () => {
