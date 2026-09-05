@@ -33,9 +33,10 @@ export default function DirectEntryGuard() {
           note.className = "reserve-entry-lock queue-entry-lock-note";
           actions.before(note);
         }
-        note.textContent = handoffPending
+        const message = handoffPending
           ? "紙を渡して「紙を渡した」を先に押してください"
           : "整理券グループがいるため、直接入場はできません";
+        if (note.textContent !== message) note.textContent = message;
       } else if (note) {
         note.remove();
         note = null;
