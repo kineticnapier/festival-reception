@@ -86,6 +86,52 @@ test("直接入場も紙整理券の受け渡しを経て入場状態になる",
   assert.match(directTicket, /next_ticket = MAX\(next_ticket, \?\)/);
 });
 
+test("番号指定呼出はUIとサーバーの両方で空き不足を防ぐ", async () => {
+  const route = await readFile(new URL("../app/api/actions/route.ts", import.meta.url), "utf8");
+  const guard = await readFile(new URL("../lib/server/manual-call-guard.ts", import.meta.url), "utf8");
+  const page = await readFile(new URL("../app/reception-page.tsx", import.meta.url), "utf8");
+  assert.match(route, /assertManualCallFits\(input\.ticketNumber, dayKey\)/);
+  assert.match(guard, /group\.party_size > freeSeats/);
+  assert.match(guard, /status = 'waiting'/);
+  assert.match(page, /item\.party_size <= status\.guidance\.freeSeats/);
+  assert.match(page, /案内可/);
+});
+
+test("手動修正はタブを開いた時の最新revisionを使い、古い値の上書きを拒否する", async () => {
+  const page = await readFile(new URL("../app/admin/page.tsx", import.meta.url), "utf8");
+  const admin = await readFile(new URL("../lib/server/admin.ts", import.meta.url), "utf8");
+  assert.match(page, /value === "correct"/);
+  assert.match(page, /const latest = await refresh\(\)/);
+  assert.match(page, /expectedRevision: correctionRevision/);
+  assert.match(admin, /revisionRow\.revision !== expectedRevision/);
+  assert.match(admin, /AND revision = \?/);
+});
+
+test("詳細内訳は未入力を保てて、登録成功後は人数以外をリセットする", async () => {
+  const page = await readFile(new URL("../app/reception-page.tsx", import.meta.url), "utf8");
+  assert.match(page, /sourceKnown/);
+  assert.match(page, /genderKnown/);
+  assert.match(page, /ageKnown/);
+  assert.match(page, /clearBreakdowns\(\)/);
+  assert.match(page, /if \(success\) clearBreakdowns\(\)/);
+  assert.doesNotMatch(page, /Math\.round\(partySize \/ 2\)/);
+  assert.match(page, /未入力に戻す/);
+});
+
+test("受付画面は同期経過秒を表示する", async () => {
+  const page = await readFile(new URL("../app/reception-page.tsx", import.meta.url), "utf8");
+  assert.match(page, /lastSyncAt/);
+  assert.match(page, /同期済み・\$\{syncAge\}秒前/);
+});
+
+test("公開待ちページは番号なしで読み込み続けず、案内順の断定を弱める", async () => {
+  const page = await readFile(new URL("../app/wait/page.tsx", import.meta.url), "utf8");
+  assert.match(page, /整理券番号がありません/);
+  assert.match(page, /参考：番号上、先に発行された待機/);
+  assert.match(page, /function isNear/);
+  assert.doesNotMatch(page, /あなたより前の受付/);
+});
+
 test("操作ごとの取り消しは既存の完了ポップアップ内のボタンから対象op_idだけを戻す", async () => {
   const route = await readFile(new URL("../app/api/actions/route.ts", import.meta.url), "utf8");
   const undo = await readFile(new URL("../lib/server/operation-undo.ts", import.meta.url), "utf8");
@@ -99,6 +145,7 @@ test("操作ごとの取り消しは既存の完了ポップアップ内のボ�
   assert.match(feedback, /toastApi\.success = wrappedSuccess/);
   assert.match(feedback, /withUndoAction/);
   assert.match(feedback, /label: "取り消す"/);
+  assert.match(feedback, /duration: options\?\.duration \?\? 6000/);
   assert.match(feedback, /UNDO_OPERATION/);
   assert.doesNotMatch(feedback, /この操作は取り消せます/);
   assert.doesNotMatch(feedback, /MutationObserver/);
