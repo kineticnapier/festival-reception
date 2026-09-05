@@ -9,6 +9,7 @@ type AdminInput = {
   totalCount?: number;
   nextTicket?: number;
   calledNumber?: number | null;
+  expectedRevision?: number;
   groupId?: number;
   status?: string;
   normalCapacity?: number;
@@ -98,7 +99,7 @@ function validatedLinks(input: SocialInput[]) {
     if (!label || !urlText) throw new Error(`${index + 1}件目の名前とURLを入力してください`);
     let url: URL;
     try { url = new URL(urlText); } catch { throw new Error(`${label}のURLが正しくありません`); }
-    if (!['https:', 'http:'].includes(url.protocol)) throw new Error(`${label}はWebページのURLを指定してください`);
+    if (!["https:", "http:"].includes(url.protocol)) throw new Error(`${label}はWebページのURLを指定してください`);
     return { label, url: url.toString(), enabled: link.enabled !== false };
   });
 }
@@ -125,6 +126,13 @@ export async function performAdminAction(action: string, input: AdminInput, curr
     const totalCount = integer(input.totalCount, "累計人数", currentCount, 100_000);
     const nextTicket = integer(input.nextTicket, "次の整理券番号", 1, 1_000_000);
     const calledNumber = input.calledNumber == null || input.calledNumber === 0 ? null : integer(input.calledNumber, "案内中番号", 1, 1_000_000);
+    const expectedRevision = integer(input.expectedRevision, "編集開始時の更新番号", 0, 1_000_000_000);
+    const revisionRow = await database.prepare("SELECT revision FROM day_state WHERE day_key = ?").bind(dayKey).first<{ revision: number }>();
+    if (!revisionRow) throw new Error("当日の状態を取得できませんでした");
+    if (revisionRow.revision !== expectedRevision) {
+      throw new Error("手動修正を開いた後に受付状態が更新されました。手動修正タブを開き直して最新値を確認してください");
+    }
+
     let calledGroup: { id: number; party_size: number } | null = null;
     const pendingGroup = await database.prepare("SELECT id, ticket_number FROM visitor_groups WHERE day_key = ? AND status = 'issuing' LIMIT 1").bind(dayKey).first<{ id: number; ticket_number: number }>();
     if (calledNumber != null) {
@@ -142,7 +150,7 @@ export async function performAdminAction(action: string, input: AdminInput, curr
     statements.push(database.prepare("UPDATE visitor_groups SET status = 'waiting', called_at = NULL WHERE day_key = ? AND status = 'called'").bind(dayKey));
     if (calledGroup) statements.push(database.prepare("UPDATE visitor_groups SET status = 'called', called_at = ? WHERE id = ?").bind(now, calledGroup.id));
     statements.push(
-      database.prepare("UPDATE day_state SET current_count = ?, total_count = ?, max_current = MAX(max_current, ?), next_ticket = ?, called_ticket_number = ?, revision = revision + 1, updated_at = ? WHERE day_key = ?").bind(currentCount, totalCount, currentCount, nextTicket, calledNumber, now, dayKey),
+      database.prepare("UPDATE day_state SET current_count = ?, total_count = ?, max_current = MAX(max_current, ?), next_ticket = ?, called_ticket_number = ?, revision = revision + 1, updated_at = ? WHERE day_key = ? AND revision = ?").bind(currentCount, totalCount, currentCount, nextTicket, calledNumber, now, dayKey, expectedRevision),
       database.prepare("INSERT INTO events (day_key, op_id, type, ticket_number, group_id, details, party_size, created_at) VALUES (?, ?, 'ADMIN_CORRECT', ?, ?, ?, 0, ?)").bind(dayKey, opId, calledNumber, calledGroup?.id ?? null, details, now),
     );
     await database.batch(statements);
