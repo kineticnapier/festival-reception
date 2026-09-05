@@ -92,6 +92,7 @@ export default function OperationUndoFeedback() {
       operationId: string,
     ): Parameters<typeof previousSuccess>[1] => ({
       ...(options ?? {}),
+      duration: options?.duration ?? 6000,
       action: {
         label: "取り消す",
         onClick: () => void undoOperation(operationId),

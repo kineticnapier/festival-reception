@@ -107,12 +107,17 @@ export default function ReceptionPage() {
   const refreshInFlightRef = useRef(false);
   const mutationEpochRef = useRef(0);
   const [error, setError] = useState("");
+  const [lastSyncAt, setLastSyncAt] = useState<number | null>(null);
+  const [clockNow, setClockNow] = useState(() => Date.now());
 
   const [partySize, setPartySize] = useState(2);
   const [sourcePreset, setSourcePreset] = useState<SourcePreset>("unknown");
+  const [sourceKnown, setSourceKnown] = useState(false);
   const [studentCount, setStudentCount] = useState(0);
   const [grades, setGrades] = useState({ m1: 0, m2: 0, m3: 0, h1: 0, h2: 0 });
+  const [genderKnown, setGenderKnown] = useState(false);
   const [maleCount, setMaleCount] = useState<number | null>(null);
+  const [ageKnown, setAgeKnown] = useState(false);
   const [adultCount, setAdultCount] = useState<number | null>(null);
 
   const [callDialogOpen, setCallDialogOpen] = useState(false);
@@ -143,6 +148,7 @@ export default function ReceptionPage() {
       }
       if (response.status === 204) {
         setAuthenticated(true);
+        setLastSyncAt(Date.now());
         setError("");
         return;
       }
@@ -151,6 +157,7 @@ export default function ReceptionPage() {
       const current = statusRef.current;
       if (epoch === mutationEpochRef.current && (!current || data.revision >= current.revision)) commitStatus(data);
       setAuthenticated(true);
+      setLastSyncAt(Date.now());
       setError("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "更新できませんでした");
@@ -177,6 +184,12 @@ export default function ReceptionPage() {
     };
   }, [authenticated, refresh]);
 
+  useEffect(() => {
+    if (!authenticated) return;
+    const timer = window.setInterval(() => setClockNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [authenticated]);
+
   function resize(next: number) {
     const value = Math.max(1, Math.min(30, next));
     const nextStudentCount = Math.min(studentCount, value);
@@ -194,12 +207,20 @@ export default function ReceptionPage() {
     setAdultCount((old) => old == null ? null : Math.min(old, value));
   }
 
+  function clearBreakdowns() {
+    setSourcePreset("unknown");
+    setSourceKnown(false);
+    setStudentCount(0);
+    setGrades({ m1: 0, m2: 0, m3: 0, h1: 0, h2: 0 });
+    setGenderKnown(false);
+    setMaleCount(null);
+    setAgeKnown(false);
+    setAdultCount(null);
+  }
+
   function selectSourcePreset(next: SourcePreset) {
-    setSourcePreset(next);
-    if (next === "mixed") {
-      setMaleCount((current) => current ?? Math.round(partySize / 2));
-      setAdultCount((current) => current ?? Math.round(partySize / 2));
-    }
+    if (next === "unknown") clearBreakdowns();
+    else setSourcePreset("mixed");
   }
 
   function changeStudentCount(next: number) {
@@ -226,9 +247,8 @@ export default function ReceptionPage() {
       highGrade2Count: null,
       highGrade3Count: null,
     };
-    const source: SourceCounts = sourcePreset === "unknown"
-      ? unknown
-      : {
+    const source: SourceCounts = sourcePreset === "mixed" && sourceKnown
+      ? {
           studentCount,
           externalCount: partySize - studentCount,
           middleGrade1Count: grades.m1,
@@ -237,20 +257,21 @@ export default function ReceptionPage() {
           highGrade1Count: grades.h1,
           highGrade2Count: grades.h2,
           highGrade3Count: 0,
-        };
+        }
+      : unknown;
     return {
       partySize,
       ...source,
-      maleCount: sourcePreset === "mixed" ? maleCount : null,
-      femaleCount: sourcePreset === "mixed" && maleCount != null ? partySize - maleCount : null,
-      adultCount: sourcePreset === "mixed" ? adultCount : null,
-      childCount: sourcePreset === "mixed" && adultCount != null ? partySize - adultCount : null,
+      maleCount: sourcePreset === "mixed" && genderKnown ? maleCount : null,
+      femaleCount: sourcePreset === "mixed" && genderKnown && maleCount != null ? partySize - maleCount : null,
+      adultCount: sourcePreset === "mixed" && ageKnown ? adultCount : null,
+      childCount: sourcePreset === "mixed" && ageKnown && adultCount != null ? partySize - adultCount : null,
     };
-  }, [partySize, sourcePreset, studentCount, grades, maleCount, adultCount]);
+  }, [partySize, sourcePreset, sourceKnown, studentCount, grades, genderKnown, maleCount, ageKnown, adultCount]);
 
   const gradeTotal = Object.values(grades).reduce((sum, value) => sum + value, 0);
   const unassignedGradeCount = Math.max(0, studentCount - gradeTotal);
-  const mixedInvalid = sourcePreset === "mixed" && gradeTotal > studentCount;
+  const mixedInvalid = sourcePreset === "mixed" && sourceKnown && gradeTotal > studentCount;
 
   async function act(action: string, extra: Record<string, unknown> = {}, optimistic?: (current: Status) => Status) {
     if (busyRef.current) return false;
@@ -278,6 +299,7 @@ export default function ReceptionPage() {
       if (data.status) commitStatus(data.status);
       else if (data.patch && statusRef.current) commitStatus(applyServerPatch(statusRef.current, data.patch));
       else await refresh();
+      setLastSyncAt(Date.now());
 
       if (data.issuedTicket) {
         toast.success(`整理券 ${data.issuedTicket}番を準備しました`);
@@ -304,9 +326,10 @@ export default function ReceptionPage() {
       toast.error("学年人数が在校生人数を超えています");
       return;
     }
+    let success = false;
     if (action === "REGISTER_DIRECT") {
       const optimisticId = -Date.now();
-      await act(action, groupPayload, (current) => updateLocalStatus(current, {
+      success = await act(action, groupPayload, (current) => updateLocalStatus(current, {
         currentCount: current.currentCount + partySize,
         totalCount: current.totalCount + partySize,
         maxCurrent: Math.max(current.maxCurrent, current.currentCount + partySize),
@@ -320,8 +343,9 @@ export default function ReceptionPage() {
         }],
       }));
     } else {
-      await act(action, groupPayload);
+      success = await act(action, groupPayload);
     }
+    if (success) clearBreakdowns();
   }
 
   async function callNumber(ticketNumber: number) {
@@ -416,6 +440,7 @@ export default function ReceptionPage() {
   const recommended = status.guidance.target;
   const selectedExitGroups = status.inside.filter((group) => selectedExitIds.includes(group.id));
   const selectedExitPeople = selectedExitGroups.reduce((sum, group) => sum + group.party_size, 0);
+  const syncAge = lastSyncAt == null ? null : Math.max(0, Math.floor((clockNow - lastSyncAt) / 1000));
 
   return <main className="app-shell">
     <Toaster position="top-center" richColors />
@@ -423,7 +448,7 @@ export default function ReceptionPage() {
     <header className="topbar reception-topbar">
       <div><h1>受付</h1></div>
       <div className="topbar-actions">
-        <div className={`sync-badge ${error ? "offline" : busyAction ? "processing" : ""}`}><span />{error ? "再接続中" : busyAction ? processingLabel(busyAction) : "同期済み"}</div>
+        <div className={`sync-badge ${error ? "offline" : busyAction ? "processing" : ""}`}><span />{error ? "再接続中" : busyAction ? processingLabel(busyAction) : syncAge == null ? "同期中" : `同期済み・${syncAge}秒前`}</div>
         <Button asChild variant="outline" size="sm"><a href="/admin"><Shield />管理</a></Button>
         <Button variant="ghost" size="sm" onClick={logout}>終了</Button>
       </div>
@@ -483,18 +508,27 @@ export default function ReceptionPage() {
 
           {sourcePreset === "mixed" && <div className="demographic-details"><div className="detail-grid">
             <section>
-              <SplitSlider title="在校生 / 外部" lead="在校生" follow="外部" total={partySize} value={studentCount} onChange={changeStudentCount} />
-              {studentCount > 0 && <div className="grade-block">
-                <h4>学年</h4>
-                <div className="grade-grid">
-                  {([['m1','中1'],['m2','中2'],['m3','中3'],['h1','高1'],['h2','高2']] as [keyof typeof grades,string][]).map(([key,label]) => <CountEditor key={key} label={label} value={grades[key]} max={grades[key] + Math.max(0, studentCount - gradeTotal)} onChange={(value) => setGrades({ ...grades, [key]: value })} />)}
-                </div>
-                {unassignedGradeCount > 0 && <p className="validation-hint">未入力 {unassignedGradeCount}人</p>}
-                {mixedInvalid && <p className="validation-error">学年人数が在校生人数を超えています</p>}
-              </div>}
+              <div className="compact-heading"><h3>在校生 / 外部</h3><Button type="button" variant="outline" size="sm" onClick={() => { setSourceKnown((current) => !current); if (sourceKnown) { setStudentCount(0); setGrades({ m1: 0, m2: 0, m3: 0, h1: 0, h2: 0 }); } }}>{sourceKnown ? "未入力に戻す" : "入力する"}</Button></div>
+              {!sourceKnown ? <p className="validation-hint">未入力</p> : <>
+                <SplitSlider title="在校生 / 外部" lead="在校生" follow="外部" total={partySize} value={studentCount} onChange={changeStudentCount} />
+                {studentCount > 0 && <div className="grade-block">
+                  <h4>学年</h4>
+                  <div className="grade-grid">
+                    {([['m1','中1'],['m2','中2'],['m3','中3'],['h1','高1'],['h2','高2']] as [keyof typeof grades,string][]).map(([key,label]) => <CountEditor key={key} label={label} value={grades[key]} max={grades[key] + Math.max(0, studentCount - gradeTotal)} onChange={(value) => setGrades({ ...grades, [key]: value })} />)}
+                  </div>
+                  {unassignedGradeCount > 0 && <p className="validation-hint">学年未入力 {unassignedGradeCount}人</p>}
+                  {mixedInvalid && <p className="validation-error">学年人数が在校生人数を超えています</p>}
+                </div>}
+              </>}
             </section>
-            <SplitSlider title="男女" lead="男" follow="女" total={partySize} value={maleCount ?? Math.round(partySize / 2)} onChange={setMaleCount} />
-            <SplitSlider title="大人 / 子供" lead="大人" follow="子供" total={partySize} value={adultCount ?? Math.round(partySize / 2)} onChange={setAdultCount} />
+            <section>
+              <div className="compact-heading"><h3>男女</h3><Button type="button" variant="outline" size="sm" onClick={() => { if (genderKnown) { setGenderKnown(false); setMaleCount(null); } else { setGenderKnown(true); setMaleCount(0); } }}>{genderKnown ? "未入力に戻す" : "入力する"}</Button></div>
+              {genderKnown && maleCount != null ? <SplitSlider title="男女" lead="男" follow="女" total={partySize} value={maleCount} onChange={setMaleCount} /> : <p className="validation-hint">未入力</p>}
+            </section>
+            <section>
+              <div className="compact-heading"><h3>大学生以上 / 高校生以下</h3><Button type="button" variant="outline" size="sm" onClick={() => { if (ageKnown) { setAgeKnown(false); setAdultCount(null); } else { setAgeKnown(true); setAdultCount(0); } }}>{ageKnown ? "未入力に戻す" : "入力する"}</Button></div>
+              {ageKnown && adultCount != null ? <SplitSlider title="年齢" lead="大学生以上" follow="高校生以下" total={partySize} value={adultCount} onChange={setAdultCount} /> : <p className="validation-hint">未入力</p>}
+            </section>
           </div></div>}
 
           {overCapacity && <p className="capacity-warning">空き {walkInFreeSeats}人</p>}
@@ -526,10 +560,13 @@ export default function ReceptionPage() {
                 <Button className="action-button admit-button" disabled={busy || ticketHandoffPending || !status.called} onClick={() => act("ADMIT_CALLED")}><DoorOpen />{busyAction === "ADMIT_CALLED" ? "処理中…" : status.called ? `${status.called.ticket_number}番 入場` : "入場確認"}</Button>
               </div>
               <Dialog open={callDialogOpen} onOpenChange={setCallDialogOpen}>
-                <DialogTrigger asChild><Button className="exception-call-button" variant="ghost" disabled={busy || ticketHandoffPending || !status.waiting.length}><ListRestart />別の番号を呼ぶ</Button></DialogTrigger>
+                <DialogTrigger asChild><Button className="exception-call-button" variant="ghost" disabled={busy || ticketHandoffPending || !!status.called || !status.waiting.length}><ListRestart />別の番号を呼ぶ</Button></DialogTrigger>
                 <DialogContent className="call-dialog">
-                  <DialogHeader><DialogTitle>番号を選択</DialogTitle><DialogDescription>例外時のみ使用</DialogDescription></DialogHeader>
-                  <div className="number-picker">{status.waiting.map((item) => <Button key={item.id} variant="outline" disabled={busy} onClick={() => callNumber(item.ticket_number!)}><strong>{item.ticket_number}</strong><span>{item.party_size}人</span></Button>)}</div>
+                  <DialogHeader><DialogTitle>番号を選択</DialogTitle><DialogDescription>空きに入れる待機グループだけ選べます。</DialogDescription></DialogHeader>
+                  <div className="number-picker">{status.waiting.map((item) => {
+                    const fits = item.party_size <= status.guidance.freeSeats;
+                    return <Button key={item.id} variant="outline" disabled={busy || !fits} onClick={() => callNumber(item.ticket_number!)}><strong>{item.ticket_number}</strong><span>{item.party_size}人・{fits ? "案内可" : `空き${status.guidance.freeSeats}人`}</span></Button>;
+                  })}</div>
                 </DialogContent>
               </Dialog>
             </div>

@@ -55,6 +55,7 @@ export default function WaitPage() {
 
   const ticket = status?.ticket;
   const tone = ticket ? ticketTone(ticket) : "waiting";
+  const missingTicket = query != null && !query.ticket;
 
   return (
     <main className="wait-public-shell">
@@ -69,39 +70,40 @@ export default function WaitPage() {
         {ticket && <span className="wait-state-badge">{stateLabel(ticket)}</span>}
       </section>
 
-      {error ? <section className="wait-public-error"><h1>接続を確認しています</h1><p>{error}</p></section>
-        : !status ? <section className="wait-primary-card"><h1>読み込み中…</h1><p>最新の案内状況を確認しています。</p></section>
-          : !ticket ? <section className="wait-public-error"><h1>整理券が見つかりません</h1><p>URLが途中で切れていないか、受付でご確認ください。</p></section>
-            : <>
-              <StatusCard ticket={ticket} />
+      {missingTicket ? <section className="wait-public-error"><h1>整理券番号がありません</h1><p>整理券のQRコードから開くか、受付番号付きのURLをご利用ください。</p></section>
+        : error ? <section className="wait-public-error"><h1>接続を確認しています</h1><p>{error}</p></section>
+          : !status ? <section className="wait-primary-card"><h1>読み込み中…</h1><p>最新の案内状況を確認しています。</p></section>
+            : !ticket ? <section className="wait-public-error"><h1>整理券が見つかりません</h1><p>URLが途中で切れていないか、受付でご確認ください。</p></section>
+              : <>
+                <StatusCard ticket={ticket} />
 
-              {ticket.status === "waiting" && <section className="wait-summary">
-                <div><span>あなたより前の受付</span><strong>{ticket.ahead}<small>組</small></strong></div>
-                <div><span>待ち時間の目安</span><strong>{waitEstimate(ticket.estimatedMinutes)}</strong></div>
-              </section>}
+                {ticket.status === "waiting" && <section className="wait-summary">
+                  <div><span>待ち時間の目安</span><strong>{waitEstimate(ticket.estimatedMinutes)}</strong></div>
+                  <div><span>参考：番号上、先に発行された待機</span><strong>{ticket.ahead}<small>組</small></strong></div>
+                </section>}
 
-              <section className="wait-current">
-                <span>現在の案内</span>
-                <strong>{status.called ? `${status.called.ticket_number}番` : "案内待ち"}</strong>
-              </section>
+                <section className="wait-current">
+                  <span>現在の案内</span>
+                  <strong>{status.called ? `${status.called.ticket_number}番` : "案内待ち"}</strong>
+                </section>
 
-              <section className="wait-party"><span>受付人数</span><strong>{ticket.party_size}人</strong></section>
+                <section className="wait-party"><span>受付人数</span><strong>{ticket.party_size}人</strong></section>
 
-              {(ticket.status === "waiting" || ticket.status === "called") && <section className="wait-notice">
-                {ticket.status === "called"
-                  ? <>紙整理券をお持ちのうえ、<strong>グループ全員で受付へお越しください。</strong></>
-                  : <>順番が近づいたら受付付近へお戻りください。<strong>グループ人数や混雑状況により案内順が前後する場合があります。</strong> 紙整理券は必ずお持ちください。</>}
-              </section>}
+                {(ticket.status === "waiting" || ticket.status === "called") && <section className="wait-notice">
+                  {ticket.status === "called"
+                    ? <>紙整理券をお持ちのうえ、<strong>グループ全員で受付へお越しください。</strong></>
+                    : <>順番が近づいたら受付付近へお戻りください。<strong>グループ人数や混雑状況により案内順が前後する場合があります。</strong> 紙整理券は必ずお持ちください。</>}
+                </section>}
 
-              {status.socialLinks?.length > 0 && <section className="wait-public-links">
-                <h2>待ち時間にこちらもどうぞ</h2>
-                <div className="wait-public-links-list">{status.socialLinks.map((link) => <a key={link.id} href={link.url} target="_blank" rel="noreferrer"><span>{link.label}</span><ExternalLink /></a>)}</div>
-              </section>}
-            </>}
+                {status.socialLinks?.length > 0 && <section className="wait-public-links">
+                  <h2>待ち時間にこちらもどうぞ</h2>
+                  <div className="wait-public-links-list">{status.socialLinks.map((link) => <a key={link.id} href={link.url} target="_blank" rel="noreferrer"><span>{link.label}</span><ExternalLink /></a>)}</div>
+                </section>}
+              </>}
 
       <footer className="wait-public-footer">
         <span>{status?.dayKey ?? query?.day ?? ""}</span>
-        <span>{lastUpdated ? `最終更新 ${clockLabel(lastUpdated)}` : "最新情報を取得中"}</span>
+        <span>{lastUpdated ? `最終更新 ${clockLabel(lastUpdated)}` : missingTicket ? "番号を確認してください" : "最新情報を取得中"}</span>
       </footer>
     </main>
   );
@@ -114,15 +116,19 @@ function StatusCard({ ticket }: { ticket: TicketInfo }) {
   if (ticket.status === "inside") return <section className={`wait-primary-card ${tone}`}><h1>ご案内済みです</h1><p>この整理券は入場済みです。</p></section>;
   if (ticket.status === "exited") return <section className={`wait-primary-card ${tone}`}><h1>ご案内済みです</h1><p>ご来場ありがとうございました。</p></section>;
   if (ticket.status === "cancelled") return <section className={`wait-primary-card ${tone}`}><h1>この整理券は取消済みです</h1><p>必要な場合は受付へお声がけください。</p></section>;
-  if (ticket.ahead <= 1) return <section className={`wait-primary-card ${tone}`}><h1>まもなくご案内です</h1><p>受付付近でお待ちください。</p></section>;
+  if (isNear(ticket)) return <section className={`wait-primary-card ${tone}`}><h1>まもなくご案内です</h1><p>受付付近でお待ちください。</p></section>;
   return <section className={`wait-primary-card ${tone}`}><h1>順番待ち中です</h1><p>この画面は自動で最新の案内状況に更新されます。</p></section>;
+}
+
+function isNear(ticket: TicketInfo) {
+  return ticket.status === "waiting" && ticket.estimatedMinutes != null && ticket.estimatedMinutes <= 1;
 }
 
 function ticketTone(ticket: TicketInfo) {
   if (ticket.status === "called") return "called";
   if (ticket.status === "inside" || ticket.status === "exited") return "done";
   if (ticket.status === "cancelled") return "cancelled";
-  if (ticket.status === "waiting" && ticket.ahead <= 1) return "near";
+  if (isNear(ticket)) return "near";
   return "waiting";
 }
 
@@ -131,7 +137,7 @@ function stateLabel(ticket: TicketInfo) {
   if (ticket.status === "called") return "お呼び出し中";
   if (ticket.status === "inside" || ticket.status === "exited") return "ご案内済み";
   if (ticket.status === "cancelled") return "取消済み";
-  if (ticket.ahead <= 1) return "まもなくご案内";
+  if (isNear(ticket)) return "まもなくご案内";
   return "順番待ち中";
 }
 

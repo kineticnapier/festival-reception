@@ -2,6 +2,7 @@ import { currentDayKey, performAction } from "@/lib/server/reception";
 import { ensureDayDefaults } from "@/lib/server/day-defaults";
 import { assertDirectEntryAllowed } from "@/lib/server/direct-entry-guard";
 import { confirmDirectTicketHandoff, prepareDirectEntryTicket } from "@/lib/server/direct-entry-ticket";
+import { assertManualCallFits } from "@/lib/server/manual-call-guard";
 import { chooseSplitContinuationTicket } from "@/lib/server/split-continuation";
 import { createSplitQueueIfNeeded } from "@/lib/server/split-queue";
 import { undoSpecificOperation } from "@/lib/server/operation-undo";
@@ -57,6 +58,9 @@ export async function POST(request: Request) {
         if (body.action === "QUEUE_CREATE_GROUP") {
           const split = await createSplitQueueIfNeeded(input);
           if (split) return split;
+        }
+        if (body.action === "CALL_NUMBER") {
+          await assertManualCallFits(input.ticketNumber, dayKey);
         }
         if (body.action === "CALL_NEXT") {
           const continuationTicket = await chooseSplitContinuationTicket();
