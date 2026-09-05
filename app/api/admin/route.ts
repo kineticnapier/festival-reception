@@ -1,5 +1,6 @@
 import { getAdminDashboard, performAdminAction } from "@/lib/server/admin";
 import { currentDayKey } from "@/lib/server/reception";
+import { ensureDayDefaults } from "@/lib/server/day-defaults";
 import { MutationBusyError, runIdempotentMutation } from "@/lib/server/operation-guard";
 import { currentSessionId, verifyAdminSession } from "@/lib/server/staff-auth";
 
@@ -7,7 +8,9 @@ export async function GET(request: Request) {
   try {
     if (!(await verifyAdminSession(request))) return Response.json({ error: "管理者認証が必要です" }, { status: 401 });
     const day = new URL(request.url).searchParams.get("day") ?? undefined;
-    return Response.json(await getAdminDashboard(day));
+    const dayKey = day ?? currentDayKey();
+    await ensureDayDefaults(dayKey);
+    return Response.json(await getAdminDashboard(dayKey));
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "管理データを取得できませんでした" }, { status: 500 });
   }
@@ -20,9 +23,12 @@ export async function POST(request: Request) {
     const body = await request.json() as Parameters<typeof performAdminAction>[1] & { action?: string; requestId?: string };
     if (!body.action) return Response.json({ error: "操作を指定してください" }, { status: 400 });
 
+    const dayKey = currentDayKey();
+    await ensureDayDefaults(dayKey);
+
     const guarded = await runIdempotentMutation({
       requestId: body.requestId,
-      dayKey: currentDayKey(),
+      dayKey,
       action: `ADMIN:${body.action}`,
       execute: () => performAdminAction(body.action!, body, sessionId),
     });

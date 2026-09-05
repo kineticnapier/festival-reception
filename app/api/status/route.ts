@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
-import { getStatus } from "@/lib/server/reception";
+import { currentDayKey, getStatus } from "@/lib/server/reception";
+import { ensureDayDefaults } from "@/lib/server/day-defaults";
 import { verifyStaffSession } from "@/lib/server/staff-auth";
 
 export async function GET(request: Request) {
@@ -7,8 +8,10 @@ export async function GET(request: Request) {
     const startedAt = performance.now();
     const url = new URL(request.url);
     const day = url.searchParams.get("day") ?? undefined;
+    const dayKey = day ?? currentDayKey();
     const ticketText = url.searchParams.get("ticket");
     const ticketNumber = ticketText == null ? null : Number(ticketText);
+    await ensureDayDefaults(dayKey);
 
     // A ticket query is always a public-ticket request, even when this browser also
     // has a staff session cookie. Otherwise opening a QR from the reception browser
@@ -18,7 +21,7 @@ export async function GET(request: Request) {
         return Response.json({ error: "整理券番号が正しくありません" }, { status: 400 });
       }
 
-      const status = await getStatus(day, ticketNumber, { includeRecent: false, includeSocialLinks: true });
+      const status = await getStatus(dayKey, ticketNumber, { includeRecent: false, includeSocialLinks: true });
 
       const activeTicket = status.pendingHandoff?.ticket_number === ticketNumber
         ? status.pendingHandoff
@@ -80,7 +83,7 @@ export async function GET(request: Request) {
     // Even when the stored revision has not changed, elapsed stay times, queue
     // priorities and wait estimates change as time passes. Return a fresh snapshot
     // on every staff poll so those live values keep moving without another mutation.
-    const status = await getStatus(day);
+    const status = await getStatus(dayKey);
     const headers = { "cache-control": "no-store", "server-timing": `total;dur=${(performance.now() - startedAt).toFixed(1)}` };
     return Response.json(status, { headers });
   } catch (error) {

@@ -1,4 +1,5 @@
 import { currentDayKey, performAction } from "@/lib/server/reception";
+import { ensureDayDefaults } from "@/lib/server/day-defaults";
 import { assertDirectEntryAllowed } from "@/lib/server/direct-entry-guard";
 import { chooseSplitContinuationTicket } from "@/lib/server/split-continuation";
 import { createSplitQueueIfNeeded } from "@/lib/server/split-queue";
@@ -14,9 +15,12 @@ export async function POST(request: Request) {
     const authorized = adminOnly ? await verifyAdminSession(request) : (await verifyStaffSession(request)) || (await verifyAdminSession(request));
     if (!authorized) return Response.json({ error: adminOnly ? "管理者認証が必要です" : "暗証番号をもう一度入力してください" }, { status: 401 });
 
+    const dayKey = currentDayKey();
+    await ensureDayDefaults(dayKey);
+
     const guarded = await runIdempotentMutation({
       requestId: body.requestId,
-      dayKey: currentDayKey(),
+      dayKey,
       action: body.action,
       execute: async (requestId) => {
         const input = { ...body, requestId };
