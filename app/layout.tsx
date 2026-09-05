@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import GuideWaitDisplay from "./guide-wait-display";
 import MotionFeedback from "./motion-feedback";
+import OperationUndoFeedback from "./operation-undo-feedback";
 import QrDialogLink from "./qr-dialog-link";
 import "./globals.css";
 import "./compact.css";
@@ -32,6 +33,7 @@ export default function RootLayout({
         <QrDialogLink />
         <MotionFeedback />
         <GuideWaitDisplay />
+        <OperationUndoFeedback />
       </body>
     </html>
   );

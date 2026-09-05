@@ -62,9 +62,10 @@ export async function prepareDirectEntryTicket(input: ActionInput) {
     throw new Error(`現在はあと${freeForDirect}人まで入場できます${calledNote}`);
   }
 
+  const directRequestId = operationId(input);
   const result = await performAction("QUEUE_CREATE_GROUP", {
     ...input,
-    requestId: `direct:${crypto.randomUUID()}`,
+    requestId: `direct:${directRequestId}`,
   });
   return { ...result, directEntryPending: true };
 }

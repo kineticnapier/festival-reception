@@ -4,13 +4,31 @@ import { assertDirectEntryAllowed } from "@/lib/server/direct-entry-guard";
 import { confirmDirectTicketHandoff, prepareDirectEntryTicket } from "@/lib/server/direct-entry-ticket";
 import { chooseSplitContinuationTicket } from "@/lib/server/split-continuation";
 import { createSplitQueueIfNeeded } from "@/lib/server/split-queue";
+import { undoSpecificOperation } from "@/lib/server/operation-undo";
 import { MutationBusyError, runIdempotentMutation } from "@/lib/server/operation-guard";
 import { verifyAdminSession, verifyStaffSession } from "@/lib/server/staff-auth";
+
+const UNDOABLE_ACTIONS = new Set([
+  "REGISTER_DIRECT",
+  "QUEUE_CREATE_GROUP",
+  "CONFIRM_TICKET_HANDOFF",
+  "CALL_NEXT",
+  "CALL_NUMBER",
+  "ADMIT_CALLED",
+  "CANCEL",
+  "EXIT_GROUP",
+  "EXIT_GROUPS",
+]);
+
+function operationEventId(action: string, requestId: string) {
+  if (!UNDOABLE_ACTIONS.has(action)) return null;
+  return action === "REGISTER_DIRECT" ? `direct:${requestId}` : requestId;
+}
 
 export async function POST(request: Request) {
   const startedAt = performance.now();
   try {
-    const body = await request.json() as Parameters<typeof performAction>[1] & { action?: string };
+    const body = await request.json() as Parameters<typeof performAction>[1] & { action?: string; operationId?: string };
     if (!body.action) return Response.json({ error: "action is required" }, { status: 400 });
     const adminOnly = ["SETTINGS", "RESET_DAY"].includes(body.action);
     const authorized = adminOnly ? await verifyAdminSession(request) : (await verifyStaffSession(request)) || (await verifyAdminSession(request));
@@ -25,6 +43,9 @@ export async function POST(request: Request) {
       action: body.action,
       execute: async (requestId) => {
         const input = { ...body, requestId };
+        if (body.action === "UNDO_OPERATION") {
+          return undoSpecificOperation(input.operationId, dayKey);
+        }
         if (body.action === "REGISTER_DIRECT") {
           await assertDirectEntryAllowed();
           return prepareDirectEntryTicket(input);
@@ -48,7 +69,12 @@ export async function POST(request: Request) {
       },
     });
 
-    return Response.json(guarded.value, {
+    const operationId = operationEventId(body.action, guarded.requestId);
+    const value = operationId
+      ? { ...(guarded.value as Record<string, unknown>), operationId }
+      : guarded.value;
+
+    return Response.json(value, {
       headers: {
         "cache-control": "no-store",
         "server-timing": `total;dur=${(performance.now() - startedAt).toFixed(1)}`,
