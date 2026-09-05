@@ -100,7 +100,7 @@ test("番号指定呼出はUIとサーバーの両方で空き不足を防ぐ", 
 test("手動修正はタブを開いた時の最新revisionを使い、古い値の上書きを拒否する", async () => {
   const page = await readFile(new URL("../app/admin/page.tsx", import.meta.url), "utf8");
   const admin = await readFile(new URL("../lib/server/admin.ts", import.meta.url), "utf8");
-  assert.match(page, /value === "correct"/);
+  assert.match(page, /if \(value !== "correct"\) return/);
   assert.match(page, /const latest = await refresh\(\)/);
   assert.match(page, /expectedRevision: correctionRevision/);
   assert.match(admin, /revisionRow\.revision !== expectedRevision/);
