@@ -2,6 +2,7 @@ import { currentDayKey, performAction } from "@/lib/server/reception";
 import { ensureDayDefaults } from "@/lib/server/day-defaults";
 import { assertDirectEntryAllowed } from "@/lib/server/direct-entry-guard";
 import { confirmDirectTicketHandoff } from "@/lib/server/direct-entry-ticket";
+import { deferCalled } from "@/lib/server/defer-called";
 import { markAlreadyExited } from "@/lib/server/already-exited";
 import { assertManualCallFits } from "@/lib/server/manual-call-guard";
 import { chooseSplitContinuationTicket } from "@/lib/server/split-continuation";
@@ -61,6 +62,9 @@ export async function POST(request: Request) {
         if (body.action === "QUEUE_CREATE_GROUP") {
           const split = await createSplitQueueIfNeeded(input);
           if (split) return split;
+        }
+        if (body.action === "DEFER_CALLED") {
+          return deferCalled(input, dayKey);
         }
         if (body.action === "MARK_ALREADY_EXITED") {
           return markAlreadyExited(input, dayKey);
