@@ -132,13 +132,13 @@ export default function GuideWaitDisplay() {
         setText(button, noShowBusy ? "取消中…" : "不在として取消");
       } else {
         const elapsedSeconds = Math.max(0, Math.floor((Date.now() - calledAt) / 1000));
-        const remainingSeconds = Math.max(0, 180 - elapsedSeconds);
+        const remainingSeconds = Math.max(0, 60 - elapsedSeconds);
         setText(label, calledElapsedLabel(calledAt));
         if (remainingSeconds > 0) {
           const remainingMinutes = Math.ceil(remainingSeconds / 60);
-          setText(note, `3分待機・あと約${remainingMinutes}分`);
+          setText(note, `1分待機・あと約${remainingMinutes}分`);
           button.disabled = true;
-          setText(button, "不在取消は3分後");
+          setText(button, "不在取消は1分後");
         } else {
           setText(note, "来なければ取消 → 後から来た場合は再発行");
           button.disabled = noShowBusy;
