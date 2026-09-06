@@ -25,19 +25,19 @@ function guidance({ currentCount, waiting, reserveWaitMinutes = 20, capacity = 1
   return calculateQueueGuidance({ capacity, currentCount, cycleMinutes, reserveWaitMinutes, now, waiting });
 }
 
-test("空きに入るグループは整理券番号が小さい順に推奨する", () => {
+test("空きに入るグループは待機列の前から推奨する", () => {
   const result = guidance({
     currentCount: 10,
-    waiting: [group(1, 4, 8), group(2, 3, 2), group(3, 2, 5)],
+    waiting: [group(1, 4, 8), group(2, 3, 5), group(3, 2, 2)],
   });
   assert.equal(result.mode, "recommended");
   assert.equal(result.target.ticketNumber, 2);
 });
 
-test("人数や待ち時間の優先度より前の整理券番号を優先する", () => {
+test("人数の優先度より待機列の前を優先する", () => {
   const result = guidance({
     currentCount: 8,
-    waiting: [group(1, 5, 0), group(2, 4, 2.5), group(3, 3, 7.5)],
+    waiting: [group(1, 5, 7.5), group(2, 4, 2.5), group(3, 3, 0)],
   });
   assert.equal(result.target.ticketNumber, 1);
 });
@@ -53,31 +53,39 @@ test("長時間待ちの入れないグループが空席を占有しない", ()
   assert.equal(result.seatsNeeded, 0);
 });
 
-test("長時間待ちでも入れるなら通常どおり前の番号を選ぶ", () => {
+test("長時間待ちでも入れるなら待機列の前を選ぶ", () => {
   const result = guidance({
     currentCount: 9,
     reserveWaitMinutes: 5,
-    waiting: [group(18, 4, 60), group(19, 3, 90)],
+    waiting: [group(18, 4, 90), group(19, 3, 60)],
   });
   assert.equal(result.mode, "recommended");
   assert.equal(result.target.ticketNumber, 18);
   assert.equal(result.seatsNeeded, 0);
 });
 
-test("優先度が高い後ろの番号より前の番号を選ぶ", () => {
+test("優先度が高い後続より待機列の前を選ぶ", () => {
   const result = guidance({
     currentCount: 8,
-    waiting: [group(1, 5, 0), group(2, 4, 2.5)],
+    waiting: [group(1, 5, 5), group(2, 4, 2.5)],
   });
   assert.equal(result.target.ticketNumber, 1);
 });
 
-test("入力順に関係なく整理券番号が小さい方を選ぶ", () => {
+test("同じ待機位置なら整理券番号が小さい方を選ぶ", () => {
   const result = guidance({
     currentCount: 10,
     waiting: [group(8, 2, 2), group(7, 2, 2)],
   });
   assert.equal(result.target.ticketNumber, 7);
+});
+
+test("不在で待機位置を更新した小さい番号は後ろに回る", () => {
+  const result = guidance({
+    currentCount: 10,
+    waiting: [group(133, 2, 0), group(134, 2, 5)],
+  });
+  assert.equal(result.target.ticketNumber, 134);
 });
 
 test("定員超過グループは全体を停止させない", () => {
@@ -91,7 +99,7 @@ test("定員超過グループは全体を停止させない", () => {
   assert.equal(result.oversizedCount, 1);
 });
 
-test("待ち時間予測も整理券番号順を使う", async () => {
+test("待ち時間予測も待機位置順を使う", async () => {
   const { estimateQueueWaitMinutes } = await vite.ssrLoadModule("/lib/queue-guidance.ts");
   const estimates = estimateQueueWaitMinutes({
     capacity: 5,
@@ -100,7 +108,7 @@ test("待ち時間予測も整理券番号順を使う", async () => {
     reserveWaitMinutes: 20,
     now,
     inside: [],
-    waiting: [group(1, 5, 0), group(2, 3, 7.5)],
+    waiting: [group(1, 5, 7.5), group(2, 3, 0)],
   });
   assert.equal(estimates.get(1), 0);
   assert.equal(estimates.get(2), 3);
