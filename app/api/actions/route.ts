@@ -2,6 +2,7 @@ import { currentDayKey, performAction } from "@/lib/server/reception";
 import { ensureDayDefaults } from "@/lib/server/day-defaults";
 import { assertDirectEntryAllowed } from "@/lib/server/direct-entry-guard";
 import { confirmDirectTicketHandoff, prepareDirectEntryTicket } from "@/lib/server/direct-entry-ticket";
+import { markAlreadyExited } from "@/lib/server/already-exited";
 import { assertManualCallFits } from "@/lib/server/manual-call-guard";
 import { chooseSplitContinuationTicket } from "@/lib/server/split-continuation";
 import { createSplitQueueIfNeeded } from "@/lib/server/split-queue";
@@ -17,6 +18,7 @@ const UNDOABLE_ACTIONS = new Set([
   "CALL_NUMBER",
   "ADMIT_CALLED",
   "CANCEL",
+  "MARK_ALREADY_EXITED",
   "EXIT_GROUP",
   "EXIT_GROUPS",
 ]);
@@ -58,6 +60,9 @@ export async function POST(request: Request) {
         if (body.action === "QUEUE_CREATE_GROUP") {
           const split = await createSplitQueueIfNeeded(input);
           if (split) return split;
+        }
+        if (body.action === "MARK_ALREADY_EXITED") {
+          return markAlreadyExited(input, dayKey);
         }
         if (body.action === "CALL_NUMBER") {
           await assertManualCallFits(input.ticketNumber, dayKey);
