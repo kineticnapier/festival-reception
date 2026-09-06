@@ -31,8 +31,11 @@ export type InsideGroupForEstimate = {
 };
 
 function compareGroups(a: ScoredQueueGroup, b: ScoredQueueGroup) {
-  if (a.ticketNumber !== b.ticketNumber) return a.ticketNumber - b.ticketNumber;
+  // createdAt is the queue-position timestamp. Normally this is issuance time;
+  // when a called group is absent we refresh it so the same ticket moves to the
+  // back instead of being immediately called again.
   if (a.createdAt !== b.createdAt) return a.createdAt - b.createdAt;
+  if (a.ticketNumber !== b.ticketNumber) return a.ticketNumber - b.ticketNumber;
   return a.id - b.id;
 }
 
@@ -80,7 +83,7 @@ export function calculateQueueGuidance(input: {
 }
 
 /**
- * Estimate each waiting group's admission time using the same ticket-order and
+ * Estimate each waiting group's admission time using the same queue-position and
  * fit rules as the real call logic.
  *
  * The currently-called group is treated as entering immediately, so its seats stay
