@@ -42,24 +42,24 @@ test("人数や待ち時間の優先度より前の整理券番号を優先す�
   assert.equal(result.target.ticketNumber, 1);
 });
 
-test("確保対象が入れない間は他グループを推奨しない", () => {
+test("長時間待ちの入れないグループが空席を占有しない", () => {
   const result = guidance({
     currentCount: 10,
     reserveWaitMinutes: 5,
-    waiting: [group(18, 4, 6), group(19, 3, 1)],
+    waiting: [group(18, 4, 60), group(19, 3, 1)],
   });
-  assert.equal(result.mode, "reserving");
-  assert.equal(result.target.ticketNumber, 18);
-  assert.equal(result.seatsNeeded, 1);
+  assert.equal(result.mode, "recommended");
+  assert.equal(result.target.ticketNumber, 19);
+  assert.equal(result.seatsNeeded, 0);
 });
 
-test("複数の確保対象が入れるときも前の番号を選ぶ", () => {
+test("長時間待ちでも入れるなら通常どおり前の番号を選ぶ", () => {
   const result = guidance({
     currentCount: 9,
     reserveWaitMinutes: 5,
-    waiting: [group(18, 4, 6), group(19, 3, 10)],
+    waiting: [group(18, 4, 60), group(19, 3, 90)],
   });
-  assert.equal(result.mode, "reserve-ready");
+  assert.equal(result.mode, "recommended");
   assert.equal(result.target.ticketNumber, 18);
   assert.equal(result.seatsNeeded, 0);
 });
@@ -80,7 +80,7 @@ test("入力順に関係なく整理券番号が小さい方を選ぶ", () => {
   assert.equal(result.target.ticketNumber, 7);
 });
 
-test("定員超過グループは空き確保で全体を停止させない", () => {
+test("定員超過グループは全体を停止させない", () => {
   const result = guidance({
     currentCount: 10,
     reserveWaitMinutes: 5,
@@ -106,7 +106,7 @@ test("待ち時間予測も整理券番号順を使う", async () => {
   assert.equal(estimates.get(2), 3);
 });
 
-test("案内中グループの席を待ち時間予測でも予約する", async () => {
+test("案内中グループの席だけは待ち時間予測でも予約する", async () => {
   const { estimateQueueWaitMinutes } = await vite.ssrLoadModule("/lib/queue-guidance.ts");
   const estimates = estimateQueueWaitMinutes({
     capacity: 13,
