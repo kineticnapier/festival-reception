@@ -73,17 +73,21 @@ test("受付と管理の更新は同じD1 mutation guardを通る", async () => 
   assert.match(guard, /ensureHardeningSchema/);
 });
 
-test("直接入場も紙整理券の受け渡しを経て入場状態になる", async () => {
+test("直接入場は待機整理券を増やさず即時入場し、未完了の紙受け渡しだけを止める", async () => {
   const route = await readFile(new URL("../app/api/actions/route.ts", import.meta.url), "utf8");
-  const directTicket = await readFile(new URL("../lib/server/direct-entry-ticket.ts", import.meta.url), "utf8");
-  assert.match(route, /prepareDirectEntryTicket/);
-  assert.match(route, /confirmDirectTicketHandoff/);
-  assert.match(directTicket, /performAction\("QUEUE_CREATE_GROUP"/);
-  assert.match(directTicket, /requestId: `direct:\$\{directRequestId\}`/);
-  assert.match(directTicket, /g\.status = 'issuing'/);
-  assert.match(directTicket, /SET status = 'inside', admitted_at = \?/);
-  assert.match(directTicket, /SELECT \?, \?, 'ADMIT'/);
-  assert.match(directTicket, /next_ticket = MAX\(next_ticket, \?\)/);
+  const serverGuard = await readFile(new URL("../lib/server/direct-entry-guard.ts", import.meta.url), "utf8");
+  const clientGuard = await readFile(new URL("../app/direct-entry-guard.tsx", import.meta.url), "utf8");
+  const reception = await readFile(new URL("../lib/server/reception.ts", import.meta.url), "utf8");
+  assert.match(route, /await assertDirectEntryAllowed\(\)/);
+  assert.doesNotMatch(route, /prepareDirectEntryTicket/);
+  assert.match(route, /return performAction\(body\.action!, input\)/);
+  assert.match(serverGuard, /status = 'issuing'/);
+  assert.doesNotMatch(serverGuard, /status IN \('issuing', 'waiting', 'called'\)/);
+  assert.match(clientGuard, /const locked = handoffPending/);
+  assert.doesNotMatch(clientGuard, /queueActive \|\| handoffPending/);
+  assert.match(reception, /if \(action === "REGISTER_DIRECT"\)/);
+  assert.match(reception, /current_count = current_count \+ \?/);
+  assert.match(reception, /total_count = total_count \+ \?/);
 });
 
 test("番号指定呼出はUIとサーバーの両方で空き不足を防ぐ", async () => {

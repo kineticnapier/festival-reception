@@ -188,35 +188,35 @@ export default function GuideWaitDisplay() {
       const calledAt = calledGroup.called_at;
       const label = panel.querySelector("strong");
       const note = panel.querySelector("span");
-      const cancelButton = panel.querySelector<HTMLButtonElement>(".called-no-show-cancel");
+      const deferButton = panel.querySelector<HTMLButtonElement>(".called-no-show-cancel");
       const exitedButton = panel.querySelector<HTMLButtonElement>(".called-already-exited");
-      if (!cancelButton || !exitedButton) return;
+      if (!deferButton || !exitedButton) return;
 
       setText(label, calledAt == null ? `${ticketNumber}番・呼出時刻不明` : calledElapsedLabel(calledAt));
-      setText(note, "未来場なら取消・すでに帰ったなら退場済み");
-      cancelButton.disabled = noShowBusy || alreadyExitedBusyTicket != null;
-      setText(cancelButton, noShowBusy ? "取消中…" : `${ticketNumber}番を不在として取消`);
+      setText(note, "不在なら同じ番号のまま後ろへ・すでに帰ったなら退場済み");
+      deferButton.disabled = noShowBusy || alreadyExitedBusyTicket != null;
+      setText(deferButton, noShowBusy ? "移動中…" : `${ticketNumber}番を不在として後ろへ`);
       exitedButton.disabled = noShowBusy || alreadyExitedBusyTicket != null;
       setText(exitedButton, alreadyExitedBusyTicket === ticketNumber ? "処理中…" : "すでに退場済み");
 
-      cancelButton.onclick = async () => {
-        if (cancelButton.disabled || noShowBusy) return;
-        if (!window.confirm(`${ticketNumber}番を不在として取り消しますか？\n後から来た場合は新しい整理券を発行してください。`)) return;
+      deferButton.onclick = async () => {
+        if (deferButton.disabled || noShowBusy) return;
+        if (!window.confirm(`${ticketNumber}番を同じ整理券のまま待機列の後ろへ回しますか？\n新しい整理券は発行しません。`)) return;
         noShowBusy = true;
         renderNoShow();
         try {
           const response = await fetch("/api/actions", {
             method: "POST",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify({ action: "CANCEL", requestId: crypto.randomUUID(), ticketNumber }),
+            body: JSON.stringify({ action: "DEFER_CALLED", requestId: crypto.randomUUID(), ticketNumber }),
           });
           const data = await response.json() as { error?: string };
-          if (!response.ok) throw new Error(data.error || "取消に失敗しました");
+          if (!response.ok) throw new Error(data.error || "待機列の後ろへ回せませんでした");
           calledGroup = null;
           renderNoShow();
           window.setTimeout(() => void refresh(), 100);
         } catch (error) {
-          window.alert(error instanceof Error ? error.message : "取消に失敗しました");
+          window.alert(error instanceof Error ? error.message : "待機列の後ろへ回せませんでした");
         } finally {
           noShowBusy = false;
           renderNoShow();
@@ -266,7 +266,7 @@ export default function GuideWaitDisplay() {
       if (mutations.some((mutation) => Array.from(mutation.addedNodes).some((node) =>
         node instanceof Element && (
           node.matches(".reception-topbar, .ticket-row, .waiting-card, .guidance-result.called, .call-control") ||
-          node.querySelector(".reception-topbar, .ticket-row, .guidance-result.called, .call-control")
+          node.querySelector(".reception-topbar, .ticket-row, .waiting-card, .guidance-result.called, .call-control")
         )
       ))) requestRefresh();
     });

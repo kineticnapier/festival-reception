@@ -9,9 +9,8 @@ export default function DirectEntryGuard() {
     const sync = () => {
       const actions = document.querySelector<HTMLElement>(".fast-entry-card .register-actions");
       const enterButton = actions?.querySelector<HTMLButtonElement>(".enter-button") ?? null;
-      const queueActive = Boolean(actions?.classList.contains("queue-active"));
       const handoffPending = Boolean(document.querySelector(".paper-ticket-alert"));
-      const locked = queueActive || handoffPending;
+      const locked = handoffPending;
 
       if (enterButton) {
         if (locked) {
@@ -33,9 +32,7 @@ export default function DirectEntryGuard() {
           note.className = "reserve-entry-lock queue-entry-lock-note";
           actions.before(note);
         }
-        const message = handoffPending
-          ? "紙を渡して「紙を渡した」を先に押してください"
-          : "整理券グループがいるため、直接入場はできません";
+        const message = "紙を渡して「紙を渡した」を先に押してください";
         if (note.textContent !== message) note.textContent = message;
       } else if (note) {
         note.remove();
