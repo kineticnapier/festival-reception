@@ -31,12 +31,9 @@ export type InsideGroupForEstimate = {
 };
 
 function compareGroups(a: ScoredQueueGroup, b: ScoredQueueGroup) {
-  const priorityDifference = b.priority - a.priority;
-  if (Math.abs(priorityDifference) > 1e-9) return priorityDifference;
-  const waitDifference = b.waitMinutes - a.waitMinutes;
-  if (Math.abs(waitDifference) > 1e-9) return waitDifference;
+  if (a.ticketNumber !== b.ticketNumber) return a.ticketNumber - b.ticketNumber;
   if (a.createdAt !== b.createdAt) return a.createdAt - b.createdAt;
-  return a.ticketNumber - b.ticketNumber;
+  return a.id - b.id;
 }
 
 export function calculateQueueGuidance(input: {
@@ -97,8 +94,8 @@ export function calculateQueueGuidance(input: {
 }
 
 /**
- * Estimate each waiting group's admission time using the same one-group-at-a-time
- * priority/reservation rules as the real call logic.
+ * Estimate each waiting group's admission time using the same ticket-order and
+ * reservation rules as the real call logic.
  *
  * The currently-called group is treated as entering immediately, so its seats stay
  * reserved while estimating the groups behind it. Direct walk-ins after `now` are
