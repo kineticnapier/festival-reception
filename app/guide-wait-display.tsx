@@ -39,6 +39,7 @@ export default function GuideWaitDisplay() {
     let minuteTimer: number | null = null;
     let noShowTimer: number | null = null;
     let noShowBusy = false;
+    let alreadyExitedBusyTicket: number | null = null;
     let groups = new Map<number, StatusGroup>();
     let calledGroup: StatusGroup | null = null;
 
@@ -70,6 +71,11 @@ export default function GuideWaitDisplay() {
           font-size: 12px;
           font-weight: 800;
         }
+        .called-no-show-actions {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 8px;
+        }
         .called-no-show button {
           min-height: 42px;
           border: 0;
@@ -80,14 +86,58 @@ export default function GuideWaitDisplay() {
           font-weight: 900;
           cursor: pointer;
         }
-        .called-no-show button:disabled {
+        .called-no-show .called-already-exited,
+        .ticket-actions .already-exited-button {
+          background: #624f49;
+          color: white;
+        }
+        .ticket-actions .already-exited-button {
+          min-height: 32px;
+          padding: 0 10px;
+          border: 0;
+          border-radius: 8px;
+          font: inherit;
+          font-size: 12px;
+          font-weight: 900;
+          cursor: pointer;
+        }
+        .called-no-show button:disabled,
+        .ticket-actions .already-exited-button:disabled {
           background: #d9cbc7;
           color: #735f59;
           cursor: default;
         }
+        @media (max-width: 640px) {
+          .called-no-show-actions { grid-template-columns: 1fr; }
+        }
       `;
       document.head.appendChild(style);
     }
+
+    const markAlreadyExited = async (ticketNumber: number, partySize: number) => {
+      if (alreadyExitedBusyTicket != null || noShowBusy) return;
+      if (!window.confirm(`${ticketNumber}番を「すでに退場済み」として処理しますか？\n現在人数は変えず、本日の累計に${partySize}人を加えます。`)) return;
+      alreadyExitedBusyTicket = ticketNumber;
+      render();
+      try {
+        const response = await fetch("/api/actions", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ action: "MARK_ALREADY_EXITED", requestId: crypto.randomUUID(), ticketNumber }),
+        });
+        const data = await response.json() as { error?: string };
+        if (!response.ok) throw new Error(data.error || "退場済み処理に失敗しました");
+        groups.delete(ticketNumber);
+        if (calledGroup?.ticket_number === ticketNumber) calledGroup = null;
+        render();
+        window.setTimeout(() => void refresh(), 100);
+      } catch (error) {
+        window.alert(error instanceof Error ? error.message : "退場済み処理に失敗しました");
+      } finally {
+        alreadyExitedBusyTicket = null;
+        render();
+      }
+    };
 
     const renderWaiting = () => {
       document.querySelectorAll<HTMLElement>(".waiting-card .ticket-row").forEach((row) => {
@@ -97,6 +147,19 @@ export default function GuideWaitDisplay() {
         const group = groups.get(ticketNumber);
         if (!detail || !group) return;
         setText(detail, `${group.party_size}人・${elapsedLabel(group.created_at)}`);
+
+        const actions = row.querySelector<HTMLElement>(".ticket-actions");
+        if (!actions) return;
+        let button = actions.querySelector<HTMLButtonElement>(".already-exited-button");
+        if (!button) {
+          button = document.createElement("button");
+          button.type = "button";
+          button.className = "already-exited-button";
+          actions.prepend(button);
+        }
+        button.disabled = alreadyExitedBusyTicket != null || noShowBusy;
+        setText(button, alreadyExitedBusyTicket === ticketNumber ? "処理中…" : "退場済み");
+        button.onclick = () => void markAlreadyExited(ticketNumber, group.party_size);
       });
     };
 
@@ -113,7 +176,10 @@ export default function GuideWaitDisplay() {
         panel.className = "called-no-show";
         panel.innerHTML = `
           <div class="called-no-show-copy"><strong></strong><span></span></div>
-          <button type="button"></button>
+          <div class="called-no-show-actions">
+            <button class="called-no-show-cancel" type="button"></button>
+            <button class="called-already-exited" type="button"></button>
+          </div>
         `;
         callControl.prepend(panel);
       }
@@ -122,16 +188,19 @@ export default function GuideWaitDisplay() {
       const calledAt = calledGroup.called_at;
       const label = panel.querySelector("strong");
       const note = panel.querySelector("span");
-      const button = panel.querySelector<HTMLButtonElement>("button");
-      if (!button) return;
+      const cancelButton = panel.querySelector<HTMLButtonElement>(".called-no-show-cancel");
+      const exitedButton = panel.querySelector<HTMLButtonElement>(".called-already-exited");
+      if (!cancelButton || !exitedButton) return;
 
       setText(label, calledAt == null ? `${ticketNumber}番・呼出時刻不明` : calledElapsedLabel(calledAt));
-      setText(note, "来なければ取消 → 後から来た場合は再発行");
-      button.disabled = noShowBusy;
-      setText(button, noShowBusy ? "取消中…" : `${ticketNumber}番を不在として取消`);
+      setText(note, "未来場なら取消・すでに帰ったなら退場済み");
+      cancelButton.disabled = noShowBusy || alreadyExitedBusyTicket != null;
+      setText(cancelButton, noShowBusy ? "取消中…" : `${ticketNumber}番を不在として取消`);
+      exitedButton.disabled = noShowBusy || alreadyExitedBusyTicket != null;
+      setText(exitedButton, alreadyExitedBusyTicket === ticketNumber ? "処理中…" : "すでに退場済み");
 
-      button.onclick = async () => {
-        if (button.disabled || noShowBusy) return;
+      cancelButton.onclick = async () => {
+        if (cancelButton.disabled || noShowBusy) return;
         if (!window.confirm(`${ticketNumber}番を不在として取り消しますか？\n後から来た場合は新しい整理券を発行してください。`)) return;
         noShowBusy = true;
         renderNoShow();
@@ -153,6 +222,8 @@ export default function GuideWaitDisplay() {
           renderNoShow();
         }
       };
+
+      exitedButton.onclick = () => void markAlreadyExited(ticketNumber, calledGroup?.party_size ?? 0);
     };
 
     const render = () => {
