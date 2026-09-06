@@ -125,26 +125,10 @@ export default function GuideWaitDisplay() {
       const button = panel.querySelector<HTMLButtonElement>("button");
       if (!button) return;
 
-      if (calledAt == null) {
-        setText(label, `${ticketNumber}番・呼出時刻不明`);
-        setText(note, "確認後に取消できます");
-        button.disabled = noShowBusy;
-        setText(button, noShowBusy ? "取消中…" : "不在として取消");
-      } else {
-        const elapsedSeconds = Math.max(0, Math.floor((Date.now() - calledAt) / 1000));
-        const remainingSeconds = Math.max(0, 60 - elapsedSeconds);
-        setText(label, calledElapsedLabel(calledAt));
-        if (remainingSeconds > 0) {
-          const remainingMinutes = Math.ceil(remainingSeconds / 60);
-          setText(note, `1分待機・あと約${remainingMinutes}分`);
-          button.disabled = true;
-          setText(button, "不在取消は1分後");
-        } else {
-          setText(note, "来なければ取消 → 後から来た場合は再発行");
-          button.disabled = noShowBusy;
-          setText(button, noShowBusy ? "取消中…" : `${ticketNumber}番を不在として取消`);
-        }
-      }
+      setText(label, calledAt == null ? `${ticketNumber}番・呼出時刻不明` : calledElapsedLabel(calledAt));
+      setText(note, "来なければ取消 → 後から来た場合は再発行");
+      button.disabled = noShowBusy;
+      setText(button, noShowBusy ? "取消中…" : `${ticketNumber}番を不在として取消`);
 
       button.onclick = async () => {
         if (button.disabled || noShowBusy) return;
