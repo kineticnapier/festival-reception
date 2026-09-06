@@ -1,7 +1,7 @@
 import { currentDayKey, performAction } from "@/lib/server/reception";
 import { ensureDayDefaults } from "@/lib/server/day-defaults";
 import { assertDirectEntryAllowed } from "@/lib/server/direct-entry-guard";
-import { confirmDirectTicketHandoff, prepareDirectEntryTicket } from "@/lib/server/direct-entry-ticket";
+import { confirmDirectTicketHandoff } from "@/lib/server/direct-entry-ticket";
 import { markAlreadyExited } from "@/lib/server/already-exited";
 import { assertManualCallFits } from "@/lib/server/manual-call-guard";
 import { chooseSplitContinuationTicket } from "@/lib/server/split-continuation";
@@ -25,7 +25,7 @@ const UNDOABLE_ACTIONS = new Set([
 
 function operationEventId(action: string, requestId: string) {
   if (!UNDOABLE_ACTIONS.has(action)) return null;
-  return action === "REGISTER_DIRECT" ? `direct:${requestId}` : requestId;
+  return requestId;
 }
 
 export async function POST(request: Request) {
@@ -51,9 +51,10 @@ export async function POST(request: Request) {
         }
         if (body.action === "REGISTER_DIRECT") {
           await assertDirectEntryAllowed();
-          return prepareDirectEntryTicket(input);
         }
         if (body.action === "CONFIRM_TICKET_HANDOFF") {
+          // Keep compatibility with direct-entry tickets that were already in
+          // "issuing" state before this hotfix was deployed.
           const direct = await confirmDirectTicketHandoff(input);
           if (direct) return direct;
         }
