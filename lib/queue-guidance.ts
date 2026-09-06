@@ -60,24 +60,10 @@ export function calculateQueueGuidance(input: {
   }).sort(compareGroups);
 
   const serviceable = scores.filter((group) => group.partySize <= capacity);
-  const reserveTargets = serviceable.filter((group) => group.waitMinutes >= reserveWaitMinutes);
-  const reserveTarget = reserveTargets[0] ?? null;
-  if (reserveTarget) {
-    const seatsNeeded = Math.max(0, reserveTarget.partySize - freeSeats);
-    return {
-      mode: seatsNeeded > 0 ? "reserving" : "reserve-ready",
-      capacity,
-      currentCount,
-      freeSeats,
-      cycleMinutes,
-      reserveWaitMinutes,
-      target: reserveTarget,
-      seatsNeeded,
-      oversizedCount: scores.length - serviceable.length,
-      scores,
-    };
-  }
 
+  // A passive paper ticket is not a seat reservation. Long-waiting or abandoned
+  // tickets must never force usable seats to stay empty. Only a group that has
+  // actually been called is treated as reserved elsewhere in the admission logic.
   const target = serviceable.find((group) => group.eligibleNow) ?? null;
   return {
     mode: target ? "recommended" : (scores.length ? "no-fit" : "empty"),
@@ -95,7 +81,7 @@ export function calculateQueueGuidance(input: {
 
 /**
  * Estimate each waiting group's admission time using the same ticket-order and
- * reservation rules as the real call logic.
+ * fit rules as the real call logic.
  *
  * The currently-called group is treated as entering immediately, so its seats stay
  * reserved while estimating the groups behind it. Direct walk-ins after `now` are
@@ -147,7 +133,7 @@ export function estimateQueueWaitMinutes(input: {
     });
 
     const target = guidance.target;
-    if (target && target.partySize <= Math.max(0, capacity - occupancy) && guidance.mode !== "reserving") {
+    if (target && target.partySize <= Math.max(0, capacity - occupancy)) {
       estimates.set(target.id, Math.max(0, Math.ceil((simulatedNow - input.now) / 60_000)));
       occupancy += target.partySize;
       departures.push({ at: simulatedNow + stayMinutes * 60_000, size: target.partySize });
