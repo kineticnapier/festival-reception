@@ -1,0 +1,66 @@
+.admin-day-picker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--card);
+}
+
+.admin-day-picker label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 800;
+}
+
+.admin-day-picker input {
+  min-height: 38px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--background);
+  color: inherit;
+  font: inherit;
+}
+
+.admin-day-picker button {
+  min-height: 38px;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--background);
+  color: inherit;
+  font: inherit;
+  font-weight: 800;
+}
+
+.admin-day-picker em {
+  margin-left: auto;
+  font-style: normal;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--muted-foreground);
+}
+
+.admin-day-picker.historical {
+  border-color: #d9a441;
+  background: #fff8e6;
+}
+
+.admin-day-picker.historical em {
+  color: #8a5a00;
+}
+
+@media (max-width: 640px) {
+  .admin-day-picker {
+    flex-wrap: wrap;
+  }
+
+  .admin-day-picker em {
+    width: 100%;
+    margin-left: 0;
+  }
+}
