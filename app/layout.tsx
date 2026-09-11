@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import AdminDayPicker from "./admin-day-picker";
 import GuideWaitDisplay from "./guide-wait-display";
 import MotionFeedback from "./motion-feedback";
 import OperationUndoFeedback from "./operation-undo-feedback";
@@ -11,6 +12,7 @@ import "./wait-public.css";
 import "./motion.css";
 import "./reception-traps.css";
 import "./guide-wait-display.css";
+import "./admin-day-picker.css";
 
 export const metadata: Metadata = {
   title: "文化祭 受付・整理券システム",
@@ -34,6 +36,7 @@ export default function RootLayout({
         <MotionFeedback />
         <GuideWaitDisplay />
         <OperationUndoFeedback />
+        <AdminDayPicker />
       </body>
     </html>
   );
