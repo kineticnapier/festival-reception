@@ -4,11 +4,38 @@ import { ensureDayDefaults } from "@/lib/server/day-defaults";
 import { MutationBusyError, runIdempotentMutation } from "@/lib/server/operation-guard";
 import { currentSessionId, verifyAdminSession } from "@/lib/server/staff-auth";
 
+function validDay(value: string | null) {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const parsed = new Date(`${value}T00:00:00Z`);
+  if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value) return null;
+  return value;
+}
+
+function requestedDay(request: Request) {
+  const requestUrl = new URL(request.url);
+  const direct = validDay(requestUrl.searchParams.get("day"));
+  if (direct) return direct;
+
+  const referer = request.headers.get("referer");
+  if (referer) {
+    try {
+      const source = new URL(referer);
+      if (source.origin === requestUrl.origin && source.pathname === "/admin") {
+        const fromAdmin = validDay(source.searchParams.get("day"));
+        if (fromAdmin) return fromAdmin;
+      }
+    } catch {
+      // Ignore malformed Referer headers and fall back to today.
+    }
+  }
+
+  return currentDayKey();
+}
+
 export async function GET(request: Request) {
   try {
     if (!(await verifyAdminSession(request))) return Response.json({ error: "管理者認証が必要です" }, { status: 401 });
-    const day = new URL(request.url).searchParams.get("day") ?? undefined;
-    const dayKey = day ?? currentDayKey();
+    const dayKey = requestedDay(request);
     await ensureDayDefaults(dayKey);
     return Response.json(await getAdminDashboard(dayKey));
   } catch (error) {
@@ -24,6 +51,9 @@ export async function POST(request: Request) {
     if (!body.action) return Response.json({ error: "操作を指定してください" }, { status: 400 });
 
     const dayKey = currentDayKey();
+    if (requestedDay(request) !== dayKey) {
+      return Response.json({ error: "過去日のデータは閲覧専用です。操作する場合は今日へ戻してください" }, { status: 400 });
+    }
     await ensureDayDefaults(dayKey);
 
     const guarded = await runIdempotentMutation({
